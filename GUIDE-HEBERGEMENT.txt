@@ -1,0 +1,41 @@
+METTRE LE JEU EN LIGNE GRATUITEMENT (Render)
+=============================================
+
+Resultat : une adresse du type  https://jeux-imposteur-lol.onrender.com
+que ton pote (et les joueurs) peuvent ouvrir SANS que ton PC soit allume.
+
+LIMITES DE L'OFFRE GRATUITE (a savoir)
+- Le site s'endort apres 15 minutes sans visite. Le premier qui l'ouvre
+  attend environ 1 minute qu'il se reveille.
+- A chaque reveil/redemarrage, les parties sont EFFACEES (joueurs, roles,
+  scores). Il faut re-ajouter les joueurs. Le mot de passe hote, lui, ne change pas.
+
+ETAPE 1 - GitHub (stocker les fichiers)
+1. Va sur https://github.com et cree un compte (gratuit).
+2. Clique sur "+" en haut a droite > "New repository".
+3. Nom : jeux-imposteur-lol. Laisse "Public". Clique "Create repository".
+4. Clique sur le lien "uploading an existing file".
+5. Ouvre le dossier "Jeux imposteur lol" sur ton Bureau, selectionne TOUT
+   son contenu (Ctrl+A) et glisse-le dans la page GitHub.
+   ATTENTION : ne glisse pas le dossier "data" s'il existe.
+6. Attends la fin du chargement, puis clique "Commit changes".
+
+ETAPE 2 - Render (heberger le site)
+1. Va sur https://render.com et cree un compte avec "Sign in with GitHub".
+2. Clique "New +" > "Blueprint".
+3. Choisis le depot jeux-imposteur-lol (autorise Render a le lire si demande).
+4. Render te demande la valeur de HOST_PASSWORD : tape le mot de passe hote
+   que tu veux (8 caracteres minimum). C'est celui que ton pote utilisera.
+5. Clique "Apply" / "Deploy". Attends 2 a 3 minutes que ce soit "Live".
+6. Clique sur l'adresse affichee en haut (https://....onrender.com).
+
+ETAPE 3 - Jouer
+- Hote : ajoute /host a la fin de l'adresse et connecte-toi avec HOST_PASSWORD.
+- Donne l'adresse + le mot de passe a ton pote : il peut etre hote sans toi.
+- Joueurs : tu copies leurs liens personnels dans l'onglet "Joueurs".
+- Changer le mot de passe : Render > ton service > Environment > HOST_PASSWORD,
+  puis "Manual Deploy" (les parties en cours seront effacees).
+
+ASTUCE (garder le site eveille pendant une partie)
+Un service gratuit comme UptimeRobot peut ouvrir ton adresse toutes les 5 minutes
+pour eviter la mise en veille.

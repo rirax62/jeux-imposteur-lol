@@ -1,0 +1,17 @@
+# Déploiement Render (offre gratuite) : "New +" > "Blueprint" > choisir ce dépôt GitHub.
+services:
+  - type: web
+    name: jeux-imposteur-lol
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node --disable-warning=ExperimentalWarning server/index.js
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: TRUST_PROXY
+        value: "1"
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: HOST_PASSWORD
+        sync: false   # Render te demande de le saisir (8 caractères minimum)

@@ -1,0 +1,12 @@
+{
+  "name": "lol-roles-randomizer",
+  "version": "1.0.0",
+  "description": "Randomizer de rôles secrets pour parties personnalisées League of Legends",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning test/test.js"
+  }
+}

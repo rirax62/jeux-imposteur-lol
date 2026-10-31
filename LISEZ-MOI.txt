@@ -1,0 +1,18 @@
+JEUX IMPOSTEUR LOL - COMMENT FAIRE
+==================================
+
+1. Double-clique sur le fichier  Lancer  (Lancer.bat).
+   - Si Windows dit "Windows a protege votre PC" : clique sur
+     "Informations complementaires" puis "Executer quand meme".
+2. Une fenetre noire s'ouvre. NE LA FERME PAS tant que tu joues.
+3. Ton navigateur s'ouvre sur http://localhost:3001/host
+   (sinon, tape cette adresse toi-meme dans Chrome).
+4. La premiere fois, choisis un mot de passe hote (8 caracteres minimum).
+
+POUR ARRETER : ferme la fenetre noire.
+POUR RELANCER : double-clique de nouveau sur Lancer.
+
+Si ca dit que Node.js n'est pas installe : installe la version "LTS"
+depuis https://nodejs.org puis relance Lancer.
+
+Tes donnees (joueurs, scores...) sont dans le dossier "data" : ne le supprime pas.
