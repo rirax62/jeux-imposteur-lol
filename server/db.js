@@ -268,7 +268,7 @@ seedRoles();
 function seedWheels() {
   if (get('SELECT COUNT(*) c FROM wheel_defs').c > 0) return;
   run("INSERT INTO wheel_defs(key,label,sort) VALUES('bodyguard','Garde du corps',1)");
-  run("INSERT INTO wheel_defs(key,label,sort) VALUES('observer','Observateur',2)");
+  run("INSERT INTO wheel_defs(key,label,sort) VALUES('observer','Obsédé',2)");
 }
 seedWheels();
 
