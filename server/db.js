@@ -179,7 +179,7 @@ function seedRoles() {
     1
   );
   ins.run(
-    'Observateur',
+    'Obsédé',
     'Surveiller discrètement un joueur adverse et rapporter ses actions.',
     "Vos yeux voient tout. Votre roue désigne un joueur adverse dont vous devez suivre chaque mouvement.",
     'Observer votre cible.\nNoter ses déplacements et ses objectifs.\nRemplir les objectifs secondaires.',
@@ -192,7 +192,7 @@ function seedRoles() {
     2
   );
   ins.run(
-    'Assassin',
+    'Imposteur',
     "Éliminer l'objectif prioritaire de la partie.",
     "Discret et létal, vous frappez là où ça fait mal.",
     "Réaliser le plus d'éliminations ciblées.\nNe pas mourir en solitaire.",
@@ -205,7 +205,7 @@ function seedRoles() {
     3
   );
   ins.run(
-    'Stratège',
+    'Peintre',
     "Guider l'équipe vers la victoire.",
     "Vous lisez la partie mieux que personne.",
     "Coordonner les objectifs.\nAnnoncer les timings.",
@@ -218,7 +218,7 @@ function seedRoles() {
     4
   );
   ins.run(
-    'Éclaireur',
+    'Touriste',
     "Ouvrir la vision et révéler la carte.",
     "Vous êtes les yeux de l'équipe.",
     'Placer des balises de vision.\nRepérer les menaces.',
@@ -231,7 +231,7 @@ function seedRoles() {
     5
   );
   ins.run(
-    'Joueur standard',
+    'Super Héro',
     "Jouer au mieux pour l'équipe.",
     "Pas de pouvoir spécial : votre talent suffit.",
     "Gagner la partie.\nSoutenir les rôles spéciaux de l'équipe.",
@@ -242,6 +242,24 @@ function seedRoles() {
     55, null, null, 0, '', 0, '#c8aa6e', '⚔️',
     JSON.stringify([R('Victoire de l\'équipe', 8, 'mission', 1), R('Bonus spécial', 3, 'bonus', 2)]),
     6
+  );
+  ins.run(
+    'Pacifiste',
+    'Mission à définir par l\'hôte.',
+    'Rôle en cours de conception.',
+    '', '', '', 'Aucune.', 'Aucune.',
+    10, null, 2, 0, '', 0, '#7bd88f', '🕊️',
+    JSON.stringify([R('Mission réussie', 10, 'mission', 1)]),
+    7
+  );
+  ins.run(
+    'Berzerker',
+    'Mission à définir par l\'hôte.',
+    'Rôle en cours de conception.',
+    '', '', '', 'Aucune.', 'Aucune.',
+    10, null, 2, 0, '', 0, '#ff6b35', '🪓',
+    JSON.stringify([R('Mission réussie', 10, 'mission', 1)]),
+    8
   );
 }
 seedRoles();

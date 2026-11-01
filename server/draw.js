@@ -83,7 +83,7 @@ export function distribute(players, roles, rnd = randomInt) {
     );
     if (!pool.length)
       throw new Error(
-        'Pas assez de rôles disponibles pour tous les joueurs : augmentez un plafond, un poids, ou activez un rôle sans limite (ex. « Joueur standard »).'
+        'Pas assez de rôles disponibles pour tous les joueurs : augmentez un plafond, un poids, ou activez un rôle sans limite (ex. « Super Héro »).'
       );
     const role = pool[pickWeighted(pool, rnd)];
     assign.set(pid, role.id);
