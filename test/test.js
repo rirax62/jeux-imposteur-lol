@@ -90,8 +90,8 @@ try {
   assert.ok(st.players.every((p) => p.role_id), 'tous les joueurs ont un rôle');
   const teamCount = (t, name) => st.players.filter((p) => p.team === t && p.role_name === name).length;
   assert.equal(teamCount(0, 'Garde du corps'), 1); assert.equal(teamCount(1, 'Garde du corps'), 1);
-  assert.equal(teamCount(0, 'Observateur'), 1); assert.equal(teamCount(1, 'Observateur'), 1);
-  ok('distribution serveur : 1 Garde du corps + 1 Observateur par équipe');
+  assert.equal(teamCount(0, 'Obsédé'), 1); assert.equal(teamCount(1, 'Obsédé'), 1);
+  ok('distribution serveur : 1 Garde du corps + 1 Obsédé par équipe');
 
   // Confidentialité
   const pub = await api('GET', '/api/public/state');
