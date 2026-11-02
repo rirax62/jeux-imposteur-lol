@@ -44,7 +44,7 @@ ok('le vote s\'ouvre pendant la partie');
 
 // Peintre : trouve l'imposteur (+4), trouve le Touriste (+2), se trompe sur Hero (-1)
 S.submitVotes(g(), P('pein'), [{ target_id: ids.imp, role_id: IMP.id }, { target_id: ids.tour, role_id: TOU.id }, { target_id: ids.hero, role_id: PEI.id }]);
-// Touriste : rate l'imposteur (« Peintre » → l'imposteur +2), s'abstient sur Peintre, accuse Hero d'être imposteur (-1, imposteur +2)
+// Touriste : rate l'imposteur (« Peintre » → l'imposteur +2), s'abstient sur Peintre, accuse Hero d'être imposteur (-1 ; Hero -2 ; l'imposteur ne gagne rien)
 S.submitVotes(g(), P('tour'), [{ target_id: ids.imp, role_id: PEI.id }, { target_id: ids.pein, role_id: null }, { target_id: ids.hero, role_id: IMP.id }]);
 // Hero : trouve l'imposteur (+4)
 S.submitVotes(g(), P('hero'), [{ target_id: ids.imp, role_id: IMP.id }]);
@@ -64,10 +64,10 @@ S.closeVotes(g());
 assert.equal(g().votes_state, 'closed');
 assert.equal(total(game, ids.pein), 4 + 2 - 1);
 assert.equal(total(game, ids.tour), -1 - 1);
-assert.equal(total(game, ids.hero), 4);
-assert.equal(total(game, ids.imp), 2 + 2 + 2);       // +2 (bon vote) +2 (raté) +2 (innocent accusé)
+assert.equal(total(game, ids.hero), 4 - 2);          // +4 (imposteur trouvé) -2 (accusé à tort d'être l'imposteur)
+assert.equal(total(game, ids.imp), 2 + 2);           // +2 (bon vote) +2 (raté à son sujet) ; rien pour l'innocent accusé
 assert.equal(total(game, ids.other), 0);
-ok('points : +4 imposteur trouvé, +2 rôle trouvé, -1 erreur, +2 à l\'imposteur par erreur, abstention neutre');
+ok('points : +4 imposteur trouvé, +2 rôle trouvé, -1 erreur, +2 à l\'imposteur si on se trompe sur lui, -2 à l\'innocent accusé, abstention neutre');
 
 // Les évènements de score portent un commentaire lisible
 const evs = all("SELECT comment, points FROM score_events WHERE game_id=? AND actor='vote'", game);
@@ -88,8 +88,9 @@ assert.ok(!JSON.stringify(vw).includes('is_impostor'), 'le drapeau imposteur ne 
 assert.ok(vw.results.every((r) => !('actual' in r)), 'rôles réels masqués tant que non révélés');
 assert.equal(vw.results.length, 3);
 assert.equal(vw.targets.some((t) => t.id === ids.other), false);
-assert.equal(S.voteView(g(), P('imp')).as_impostor, 4);
+assert.equal(S.voteView(g(), P('imp')).as_impostor, 2);
 assert.equal(S.voteView(g(), P('pein')).as_impostor, 0);
+assert.equal(S.voteView(g(), P('hero')).as_impostor, -2);
 run('UPDATE games SET roles_revealed=1 WHERE id=?', game);
 assert.ok(S.voteView(g(), P('pein')).results.every((r) => 'actual' in r));
 ok('le joueur ne voit que ses cibles et ses résultats ; vrais rôles seulement une fois révélés');
