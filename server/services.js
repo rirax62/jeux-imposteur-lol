@@ -99,6 +99,7 @@ export function cleanRoleInput(input, existing = null) {
   if (has('exact_count')) { const n = int(input.exact_count, { min: 0, max: 500, def: null }); out.exact_count = n > 0 ? n : null; }
   if (has('max_count')) { const n = int(input.max_count, { min: 0, max: 500, def: null }); out.max_count = n > 0 ? n : null; }
   if (has('per_team')) out.per_team = bool(input.per_team);
+  if (has('is_impostor')) out.is_impostor = bool(input.is_impostor);
   if (has('enabled')) out.enabled = bool(input.enabled);
   if (has('wheel')) {
     const w = str(input.wheel, 20);
@@ -127,7 +128,7 @@ export function cleanRoleInput(input, existing = null) {
 }
 
 export function insertRole(fields) {
-  const defaults = { mission: '', description: '', objectives: '', allowed_actions: '', victory: '', conditions: '', penalties: '', weight: 10, exact_count: null, max_count: null, per_team: 0, enabled: 1, wheel: '', fail_points: 0, color: '#c8aa6e', icon: '⚔️', rewards: '[]', sort: (get('SELECT COALESCE(MAX(sort),0)+1 n FROM roles').n) };
+  const defaults = { mission: '', description: '', objectives: '', allowed_actions: '', victory: '', conditions: '', penalties: '', weight: 10, exact_count: null, max_count: null, per_team: 0, enabled: 1, wheel: '', fail_points: 0, is_impostor: 0, color: '#c8aa6e', icon: '⚔️', rewards: '[]', sort: (get('SELECT COALESCE(MAX(sort),0)+1 n FROM roles').n) };
   const f = { ...defaults, ...fields };
   const cols = Object.keys(f);
   const r = run(`INSERT INTO roles(${cols.join(',')}) VALUES(${cols.map(() => '?').join(',')})`, ...cols.map((c) => f[c]));
@@ -165,6 +166,8 @@ export function distributeRoles(game) {
     }
     run('DELETE FROM wheel_spins WHERE game_id=?', game.id);
     run('DELETE FROM claims WHERE game_id=?', game.id);
+    run('DELETE FROM votes WHERE game_id=?', game.id);
+    run("UPDATE games SET votes_state='none', votes_applied='[]', votes_result='null' WHERE id=?", game.id);
     run("UPDATE games SET status='distributed', distributed_at=?, roles_revealed=0 WHERE id=?", Date.now(), game.id);
     return players.length;
   });
@@ -185,6 +188,8 @@ export function resetGame(game, keepScores = false) {
   tx(() => {
     run('DELETE FROM wheel_spins WHERE game_id=?', game.id);
     run('DELETE FROM claims WHERE game_id=?', game.id);
+    run('DELETE FROM votes WHERE game_id=?', game.id);
+    run("UPDATE games SET votes_state='none', votes_applied='[]', votes_result='null' WHERE id=?", game.id);
     if (!keepScores) run('DELETE FROM score_events WHERE game_id=?', game.id);
     run('UPDATE players SET role_id=NULL, role_name=NULL, revealed=0, revealed_at=NULL WHERE game_id=?', game.id);
     run("UPDATE games SET status='lobby', distributed_at=NULL, started_at=NULL, ended_at=NULL, roles_revealed=0 WHERE id=?", game.id);
@@ -228,6 +233,178 @@ export function addScore(game, playerId, kind, points, comment = '', actor = 'h�
   if (kind === 'malus' || kind === 'mission_fail') pts = -Math.abs(pts);
   run('INSERT INTO score_events(game_id,player_id,kind,points,comment,actor,created_at) VALUES(?,?,?,?,?,?,?)', game.id, playerId, kind, pts, str(comment, 300), actor, Date.now());
   return pts;
+}
+
+// ───────────────────────── Vote de fin de partie ─────────────────────────
+export const DEFAULT_VOTE_RULES = { find_impostor: 4, find_role: 2, wrong: 1, impostor_gain: 2, impostor_mode: 'per_vote' };
+
+export function voteRules() {
+  let saved = {};
+  try { saved = JSON.parse(getSetting('vote_rules', '{}')) || {}; } catch { /* ignoré */ }
+  return { ...DEFAULT_VOTE_RULES, ...saved };
+}
+
+export function cleanVoteRules(input) {
+  const cur = voteRules();
+  const out = { ...cur };
+  for (const k of ['find_impostor', 'find_role', 'wrong', 'impostor_gain']) {
+    if (Object.prototype.hasOwnProperty.call(input, k)) {
+      const n = Number(input[k]);
+      if (!Number.isInteger(n) || n < 0 || n > 1000) throw new HttpError(400, 'Les points doivent être un nombre entier entre 0 et 1000.');
+      out[k] = n;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(input, 'impostor_mode')) {
+    if (!['per_vote', 'once'].includes(input.impostor_mode)) throw new HttpError(400, 'Mode invalide.');
+    out.impostor_mode = input.impostor_mode;
+  }
+  return out;
+}
+
+/** Joueurs sur lesquels `player` peut voter : ses coéquipiers (ou tous les autres joueurs sans équipes). */
+export function voteTargets(game, player) {
+  const others = all('SELECT id, name, team FROM players WHERE game_id=? AND id<>? ORDER BY id', game.id, player.id);
+  return game.teams_enabled && player.team !== null ? others.filter((p) => p.team === player.team) : others;
+}
+
+export function openVotes(game) {
+  if (!['running', 'ended'].includes(game.status)) throw new HttpError(409, 'Le vote s\'ouvre pendant ou après la partie.');
+  if (game.votes_state === 'open') return;
+  if (game.votes_state === 'closed') throw new HttpError(409, 'Le vote est clôturé : rouvrez-le pour annuler les points et modifier les votes.');
+  if (!get('SELECT 1 FROM players WHERE game_id=? AND role_id IS NOT NULL', game.id)) throw new HttpError(409, 'Aucun rôle n\'a été distribué.');
+  run("UPDATE games SET votes_state='open' WHERE id=?", game.id);
+}
+
+/** Enregistre (remplace) les votes d'un joueur. role_id vide = abstention : aucun point gagné ni perdu. */
+export function submitVotes(game, player, votes) {
+  if (game.votes_state !== 'open') throw new HttpError(409, 'Le vote n\'est pas ouvert.');
+  if (!Array.isArray(votes)) throw new HttpError(400, 'Votes invalides.');
+  const targets = new Map(voteTargets(game, player).map((t) => [t.id, t]));
+  const roleIds = new Set(all('SELECT id FROM roles').map((r) => r.id));
+  const clean = new Map();
+  for (const v of votes.slice(0, 200)) {
+    const tid = Number(v && v.target_id);
+    if (!targets.has(tid)) throw new HttpError(400, 'Ce joueur ne fait pas partie de ceux sur lesquels vous pouvez voter.');
+    const rid = v.role_id === null || v.role_id === undefined || v.role_id === '' ? null : Number(v.role_id);
+    if (rid !== null && !roleIds.has(rid)) throw new HttpError(400, 'Rôle inconnu.');
+    clean.set(tid, rid);
+  }
+  tx(() => {
+    for (const [tid, rid] of clean) {
+      run('DELETE FROM votes WHERE voter_id=? AND target_id=?', player.id, tid);
+      if (rid !== null) run('INSERT INTO votes(game_id,voter_id,target_id,role_id,created_at) VALUES(?,?,?,?,?)', game.id, player.id, tid, rid, Date.now());
+    }
+  });
+  return clean.size;
+}
+
+/** Calcule (sans rien écrire) les points du vote selon les règles. */
+export function computeVoteOutcome(game, rules = voteRules()) {
+  const players = new Map(all('SELECT id, name, team, role_id FROM players WHERE game_id=?', game.id).map((p) => [p.id, p]));
+  const roles = new Map(all('SELECT id, name, is_impostor FROM roles').map((r) => [r.id, r]));
+  const votes = all('SELECT voter_id, target_id, role_id FROM votes WHERE game_id=? ORDER BY voter_id, target_id', game.id);
+  const impostorsOfTeam = (voter, excludeIds) => [...players.values()].filter((p) =>
+    p.id !== voter.id && !excludeIds.includes(p.id) && roles.get(p.role_id)?.is_impostor
+    && (!game.teams_enabled || voter.team === null || p.team === voter.team));
+  const rows = [];
+  let gains = [];
+  for (const v of votes) {
+    const voter = players.get(v.voter_id), target = players.get(v.target_id);
+    const actual = target && roles.get(target.role_id), guessed = roles.get(v.role_id);
+    if (!voter || !target || !actual || !guessed) continue; // joueur supprimé ou rôle non distribué
+    const correct = target.role_id === v.role_id;
+    const imp = !!actual.is_impostor;
+    const points = correct ? (imp ? rules.find_impostor : rules.find_role) : -rules.wrong;
+    rows.push({ voter_id: voter.id, target_id: target.id, role_id: v.role_id, correct, impostor: imp, points });
+    // L'imposteur marque quand on se trompe à son sujet : on le rate, ou on accuse un innocent de la même équipe.
+    let fooled = [];
+    if (!correct && imp) fooled = [target];
+    else if (!correct && guessed.is_impostor && !imp) fooled = impostorsOfTeam(voter, [target.id]);
+    for (const p of fooled) gains.push({ player_id: p.id, points: rules.impostor_gain, voter_id: voter.id, target_id: target.id });
+  }
+  if (rules.impostor_mode === 'once') {
+    const seen = new Set();
+    gains = gains.filter((g) => (seen.has(g.player_id) ? false : (seen.add(g.player_id), true)));
+  }
+  return { rows, gains };
+}
+
+/** Clôture le vote : calcule les points et les ajoute au classement (annulable avec reopenVotes). */
+export function closeVotes(game) {
+  if (game.votes_state !== 'open') throw new HttpError(409, 'Le vote n\'est pas ouvert.');
+  const rules = voteRules();
+  const out = computeVoteOutcome(game, rules);
+  const names = new Map(all('SELECT id, name FROM players WHERE game_id=?', game.id).map((p) => [p.id, p.name]));
+  const ids = [];
+  const addEvent = (playerId, points, comment) => {
+    if (!points) return;
+    const r = run('INSERT INTO score_events(game_id,player_id,kind,points,comment,actor,created_at) VALUES(?,?,?,?,?,?,?)',
+      game.id, playerId, points > 0 ? 'points' : 'malus', points, str(comment, 300), 'vote', Date.now());
+    ids.push(Number(r.lastInsertRowid));
+  };
+  tx(() => {
+    for (const r of out.rows) {
+      const t = names.get(r.target_id);
+      addEvent(r.voter_id, r.points, r.correct ? (r.impostor ? `Vote : a démasqué l'imposteur (${t})` : `Vote : a trouvé le rôle de ${t}`) : `Vote : s'est trompé sur ${t}`);
+    }
+    for (const g of out.gains) addEvent(g.player_id, g.points, `Vote : ${names.get(g.voter_id)} s'est trompé sur ${names.get(g.target_id)}`);
+    run("UPDATE games SET votes_state='closed', votes_applied=?, votes_result=? WHERE id=?", JSON.stringify(ids), JSON.stringify(out), game.id);
+  });
+  return { votes: out.rows.length, events: ids.length };
+}
+
+/** Annule les points du vote clôturé et rouvre le vote (les votes sont conservés et modifiables). */
+export function reopenVotes(game) {
+  if (game.votes_state !== 'closed') throw new HttpError(409, 'Le vote n\'est pas clôturé.');
+  let ids = [];
+  try { ids = JSON.parse(game.votes_applied || '[]'); } catch { /* ignoré */ }
+  tx(() => {
+    for (const id of ids) run('DELETE FROM score_events WHERE id=? AND game_id=?', Number(id), game.id);
+    run("UPDATE games SET votes_state='open', votes_applied='[]', votes_result='null' WHERE id=?", game.id);
+  });
+}
+
+/** Ce que voit UN joueur : ses cibles, ses votes, et ses résultats après la clôture. Jamais les rôles réels avant la fin. */
+export function voteView(game, player) {
+  if (!game.votes_state || game.votes_state === 'none') return { state: 'none' };
+  const roles = all('SELECT id, name, icon, color FROM roles ORDER BY sort, id');
+  const roleName = new Map(roles.map((r) => [r.id, r.name]));
+  const targets = voteTargets(game, player).map((t) => ({ id: t.id, name: t.name }));
+  const mine = {};
+  for (const v of all('SELECT target_id, role_id FROM votes WHERE voter_id=?', player.id)) mine[v.target_id] = v.role_id;
+  const rules = voteRules();
+  const out = { state: game.votes_state, targets, roles, mine, rules: { find_impostor: rules.find_impostor, find_role: rules.find_role, wrong: rules.wrong } };
+  if (game.votes_state === 'closed') {
+    let res = null;
+    try { res = JSON.parse(game.votes_result); } catch { /* ignoré */ }
+    if (res) {
+      const names = new Map(targets.map((t) => [t.id, t.name]));
+      const actual = new Map(all('SELECT id, role_name FROM players WHERE game_id=?', game.id).map((p) => [p.id, p.role_name]));
+      out.results = res.rows.filter((r) => r.voter_id === player.id).map((r) => ({
+        target: names.get(r.target_id) || '?', guess: roleName.get(r.role_id) || '?', correct: r.correct, points: r.points,
+        ...(game.roles_revealed ? { actual: actual.get(r.target_id) } : {}),
+      }));
+      out.as_impostor = res.gains.filter((g) => g.player_id === player.id).reduce((s, g) => s + g.points, 0);
+    }
+  }
+  return out;
+}
+
+/** Vue hôte : participation, votes détaillés avec les vrais rôles, et points prévus / appliqués. */
+export function voteHostView(game) {
+  const rules = voteRules();
+  const base = { state: game.votes_state || 'none', rules };
+  if (base.state === 'none') return base;
+  const players = new Map(all('SELECT id, name, role_name FROM players WHERE game_id=?', game.id).map((p) => [p.id, p]));
+  const roleName = new Map(all('SELECT id, name FROM roles').map((r) => [r.id, r.name]));
+  const out = computeVoteOutcome(game, rules);
+  return {
+    ...base,
+    voters: new Set(all('SELECT voter_id FROM votes WHERE game_id=?', game.id).map((v) => v.voter_id)).size,
+    total: players.size,
+    rows: out.rows.map((r) => ({ voter: players.get(r.voter_id)?.name, target: players.get(r.target_id)?.name, guess: roleName.get(r.role_id), actual: players.get(r.target_id)?.role_name, correct: r.correct, points: r.points })),
+    gains: out.gains.map((g) => ({ player: players.get(g.player_id)?.name, points: g.points, because: `${players.get(g.voter_id)?.name} → ${players.get(g.target_id)?.name}` })),
+  };
 }
 
 // ───────────────────────── Roues ─────────────────────────
@@ -338,7 +515,7 @@ export function resolveClaim(game, claimId, approve) {
 export function publicGame(g) {
   return {
     id: g.id, name: g.name, status: g.status, team_a: g.team_a, team_b: g.team_b, teams_enabled: !!g.teams_enabled,
-    roles_revealed: !!g.roles_revealed, created_at: g.created_at, started_at: g.started_at, ended_at: g.ended_at,
+    roles_revealed: !!g.roles_revealed, votes_state: g.votes_state || 'none', created_at: g.created_at, started_at: g.started_at, ended_at: g.ended_at,
   };
 }
 
@@ -395,6 +572,7 @@ export function playerView(player) {
     role,
     wheel,
     team_results: teamResults,
+    vote: voteView(game, player),
     claims: all('SELECT id, reward_id, label, type, points, status, created_at FROM claims WHERE player_id=? ORDER BY id DESC LIMIT 30', player.id),
     events: all('SELECT id, kind, points, comment, created_at FROM score_events WHERE player_id=? ORDER BY id DESC LIMIT 50', player.id),
   };
@@ -419,6 +597,7 @@ export function hostState(game) {
     claims: all("SELECT c.*, p.name AS player FROM claims c JOIN players p ON p.id=c.player_id WHERE c.game_id=? ORDER BY (c.status='pending') DESC, c.id DESC LIMIT 100", game.id),
     ranking,
     team_totals: teamTotals(ranking),
+    votes: voteHostView(game),
     events: all('SELECT e.*, p.name AS player FROM score_events e JOIN players p ON p.id=e.player_id WHERE e.game_id=? ORDER BY e.id DESC LIMIT 200', game.id),
   };
 }

@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS roles (
   color TEXT NOT NULL DEFAULT '#c8aa6e',
   icon TEXT NOT NULL DEFAULT '⚔️',
   rewards TEXT NOT NULL DEFAULT '[]',
-  sort INTEGER NOT NULL DEFAULT 0
+  sort INTEGER NOT NULL DEFAULT 0,
+  is_impostor INTEGER NOT NULL DEFAULT 0          -- rôle « imposteur » du vote de fin de partie
 );
 
 CREATE TABLE IF NOT EXISTS games (
@@ -62,6 +63,9 @@ CREATE TABLE IF NOT EXISTS games (
   team_b TEXT NOT NULL DEFAULT 'Équipe Rouge',
   teams_enabled INTEGER NOT NULL DEFAULT 1,
   roles_revealed INTEGER NOT NULL DEFAULT 0,     -- rôles publics après la fin de partie
+  votes_state TEXT NOT NULL DEFAULT 'none',      -- none | open | closed (vote de fin de partie)
+  votes_applied TEXT NOT NULL DEFAULT '[]',      -- ids des évènements de score créés par la clôture du vote
+  votes_result TEXT NOT NULL DEFAULT 'null',     -- résultat figé à la clôture
   created_at INTEGER NOT NULL,
   distributed_at INTEGER,
   started_at INTEGER,
@@ -119,6 +123,15 @@ CREATE TABLE IF NOT EXISTS wheel_config (
   PRIMARY KEY (game_id, wheel)
 );
 
+CREATE TABLE IF NOT EXISTS votes (
+  game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  voter_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  target_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (voter_id, target_id)
+);
+
 CREATE TABLE IF NOT EXISTS wheel_defs (
   key TEXT PRIMARY KEY,
   label TEXT NOT NULL,
@@ -155,6 +168,17 @@ export function setSetting(key, value) {
 
 export function audit(gameId, actor, action, detail = '') {
   run('INSERT INTO audit(game_id,at,actor,action,detail) VALUES(?,?,?,?,?)', gameId ?? null, Date.now(), actor, action, String(detail).slice(0, 1000));
+}
+
+
+// --- Migrations légères pour une base créée avant le vote de fin de partie ---
+for (const sql of [
+  "ALTER TABLE games ADD COLUMN votes_state TEXT NOT NULL DEFAULT 'none'",
+  "ALTER TABLE games ADD COLUMN votes_applied TEXT NOT NULL DEFAULT '[]'",
+  "ALTER TABLE games ADD COLUMN votes_result TEXT NOT NULL DEFAULT 'null'",
+  'ALTER TABLE roles ADD COLUMN is_impostor INTEGER NOT NULL DEFAULT 0',
+]) {
+  try { db.exec(sql); } catch { /* colonne déjà présente */ }
 }
 
 // --- Rôles par défaut (modifiables à volonté par l'hôte) ---
@@ -263,6 +287,8 @@ function seedRoles() {
   );
 }
 seedRoles();
+// Le rôle « Imposteur » sert de cible spéciale au vote de fin de partie (modifiable dans l'éditeur de rôle).
+run("UPDATE roles SET is_impostor=1 WHERE name='Imposteur' AND NOT EXISTS (SELECT 1 FROM roles WHERE is_impostor=1)");
 
 // --- Roues par défaut (l'hôte peut en créer, renommer et supprimer) ---
 function seedWheels() {
