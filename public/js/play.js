@@ -17,6 +17,7 @@ let view = 'role';
 let roleHidden = false;  // masquage local de la carte (confidentialité à l'écran)
 let spinning = false, reloadAfterSpin = false;
 let revealedResult = null;
+let voteDraft = null;    // brouillon local du vote (survit aux rafraîchissements temps réel)
 
 // La roue vit dans un élément persistant pour ne pas être détruite par les rafraîchissements temps réel
 const wheelBox = h('div', { class: 'wheel-box' }, h('canvas'), h('div', { class: 'wheel-pointer' }));
@@ -173,12 +174,55 @@ function scorePanel() {
       h('p', { class: 'muted small' }, 'Les rôles des autres joueurs ne sont jamais visibles.')));
 }
 
+// ───────────── Vote de fin de partie ─────────────
+function votePanel() {
+  const v = S.vote;
+  const plural = (n) => (Math.abs(n) > 1 ? 'pts' : 'pt');
+  const rules = h('div', { class: 'note' }, h('strong', 'Comment ça marche : '),
+    `attribuez un rôle à chacun de vos coéquipiers. Rôle trouvé : +${v.rules.find_role} ${plural(v.rules.find_role)} · imposteur démasqué : +${v.rules.find_impostor} ${plural(v.rules.find_impostor)} · erreur : −${v.rules.wrong} ${plural(v.rules.wrong)}. `,
+    'Vous n\'êtes pas obligé de voter : si vous vous abstenez pour un joueur, personne ne gagne ni ne perd de points.');
+
+  if (v.state === 'open') {
+    if (!v.targets.length) return h('div', { class: 'panel center' }, h('h2', 'Vote de fin de partie'), h('p', { class: 'muted' }, 'Il n\'y a personne sur qui voter.'));
+    if (!voteDraft) voteDraft = { ...v.mine };
+    const rows = v.targets.map((t) => {
+      const sel = h('select', { 'aria-label': 'Rôle de ' + t.name, onchange: (e) => { voteDraft[t.id] = e.target.value ? Number(e.target.value) : null; } },
+        h('option', { value: '' }, '— Je m\'abstiens —'),
+        v.roles.map((r) => h('option', { value: r.id, selected: voteDraft[t.id] === r.id }, `${r.icon} ${r.name}`)));
+      return h('div', { class: 'reward-row' }, h('strong', t.name), sel);
+    });
+    const save = async () => {
+      const votes = v.targets.map((t) => ({ target_id: t.id, role_id: voteDraft[t.id] ?? null }));
+      const r = await act(() => api('/api/me/votes', { method: 'POST', token, body: { votes } }), 'Votes enregistrés !');
+      if (r) { voteDraft = null; load(); }
+    };
+    return h('div', { class: 'panel' }, h('h2', '🗳️ Vote de fin de partie'), rules,
+      h('div', { style: { marginTop: '.8rem' } }, rows),
+      h('div', { class: 'row end', style: { marginTop: '1rem' } }, h('button', { class: 'btn btn-primary btn-lg', onclick: save }, 'Valider mes votes')),
+      h('p', { class: 'muted small' }, 'Vous pouvez modifier vos votes tant que l\'hôte n\'a pas clôturé le vote.'));
+  }
+
+  voteDraft = null;
+  const res = v.results || [];
+  const gain = res.reduce((s, r) => s + r.points, 0) + (v.as_impostor || 0);
+  return h('div', { class: 'panel' }, h('h2', '🗳️ Résultat du vote'),
+    res.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+      h('thead', h('tr', ['Joueur', 'Votre choix', 'Résultat', 'Points'].map((t) => h('th', t)))),
+      h('tbody', res.map((r) => h('tr', h('td', h('strong', r.target)), h('td', r.guess),
+        h('td', r.correct ? '✅ Bien vu' : '❌ Raté', r.actual ? h('span', { class: 'muted small' }, ` (c'était : ${r.actual})`) : null),
+        h('td', { class: 'r ' + (r.points >= 0 ? 'pos' : 'neg') }, signed(r.points))))))) : h('div', { class: 'empty' }, 'Vous n\'avez pas voté : aucun point gagné ni perdu.'),
+    v.as_impostor ? h('p', { class: 'gold' }, `🎭 Votre équipe s'est trompée sur vous : +${v.as_impostor} pts.`) : null,
+    h('p', { style: { fontFamily: 'var(--serif)', fontSize: '1.3rem' } }, 'Total du vote : ', h('strong', { class: gain >= 0 ? 'pos' : 'neg' }, signed(gain) + ' pts')),
+    h('p', { class: 'muted small' }, 'Ces points sont ajoutés à votre score.'));
+}
+
 // ───────────── Page ─────────────
 function render() {
   const g = S.game;
-  const tabs = [['role', '🛡️ Mon rôle'], ...(S.wheel ? [['wheel', '🎡 Ma roue']] : []), ['missions', '🎯 Missions'], ['score', '🏆 Score & classement']];
+  const voteOn = S.vote && S.vote.state !== 'none';
+  const tabs = [['role', '🛡️ Mon rôle'], ...(S.wheel ? [['wheel', '🎡 Ma roue']] : []), ['missions', '🎯 Missions'], ...(voteOn ? [['vote', S.vote.state === 'open' ? '🗳️ Vote ●' : '🗳️ Vote']] : []), ['score', '🏆 Score & classement']];
   if (!tabs.some(([k]) => k === view)) view = 'role';
-  const content = view === 'role' ? rolePanel() : view === 'wheel' ? wheelPanel() : view === 'missions' ? missionsPanel() : scorePanel();
+  const content = view === 'role' ? rolePanel() : view === 'wheel' ? wheelPanel() : view === 'missions' ? missionsPanel() : view === 'vote' ? votePanel() : scorePanel();
   // Le conteneur de la roue doit rester monté ailleurs que dans une autre vue
   mount(app,
     h('div', { class: 'topbar' }, brand(),
@@ -187,6 +231,7 @@ function render() {
     h('div', { class: 'wrap' },
       h('div', { class: 'row between', style: { marginBottom: '.8rem' } }, h('h1', { style: { margin: 0 } }, g.name), statusBadge(g.status)),
       h('div', { class: 'tabs', role: 'tablist' }, tabs.map(([k, label]) => h('button', { class: 'tab' + (view === k ? ' active' : ''), role: 'tab', onclick: () => { view = k; render(); } }, label))),
+      voteOn && S.vote.state === 'open' && view !== 'vote' ? h('div', { class: 'note', style: { cursor: 'pointer' }, onclick: () => { view = 'vote'; render(); } }, '🗳️ Le vote de fin de partie est ouvert : cliquez ici pour voter.') : null,
       content));
   if (view === 'wheel' && wheel && !spinning) wheel.setLabels(S.wheel.candidates.map((c) => c.name)), restoreWheel();
 }

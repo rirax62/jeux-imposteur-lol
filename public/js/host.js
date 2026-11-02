@@ -134,6 +134,42 @@ const teamSelect = (value, onchange) => h('select', { onchange: (e) => onchange(
 const baseUrl = () => location.origin;
 const linkOf = (p) => `${baseUrl()}/j/${p.token}`;
 
+// ───────────── Vote de fin de partie (panneau hôte) ─────────────
+function voteHostPanel() {
+  const V = S.votes || { state: 'none', rules: {} }, g = S.game, R = V.rules;
+  const label = { none: 'Non ouvert', open: 'Ouvert', closed: 'Clôturé' }[V.state];
+  const btns = [];
+  if (V.state === 'none') btns.push(h('button', { class: 'btn btn-primary', disabled: !['running', 'ended'].includes(g.status), onclick: () => doIt('/api/host/votes/open', 'POST', {}, 'Vote ouvert : les joueurs peuvent voter.') }, '🗳️ Ouvrir le vote de fin de partie'));
+  if (V.state === 'open') btns.push(h('button', { class: 'btn btn-primary', onclick: async () => {
+    if (await confirmDialog(`Clôturer le vote ? Les points seront calculés et ajoutés au classement. ${V.voters} joueur(s) sur ${V.total} ont voté.`, { okLabel: 'Clôturer et attribuer les points' })) doIt('/api/host/votes/close', 'POST', {}, 'Vote clôturé : points attribués.');
+  } }, '✅ Clôturer le vote et attribuer les points'));
+  if (V.state === 'closed') btns.push(h('button', { class: 'btn btn-danger', onclick: async () => {
+    if (await confirmDialog('Rouvrir le vote ? Les points du vote seront annulés, et les joueurs pourront modifier leurs votes.', { danger: true, okLabel: 'Annuler les points et rouvrir' })) doIt('/api/host/votes/reopen', 'POST', {}, 'Vote rouvert, points annulés.');
+  } }, '↩ Rouvrir le vote (annule les points)'));
+
+  const num = (k) => numInput(R[k], () => {}, { min: 0, max: 1000 });
+  const I = { find_impostor: num('find_impostor'), find_role: num('find_role'), wrong: num('wrong'), impostor_gain: num('impostor_gain') };
+  const mode = h('select', h('option', { value: 'per_vote', selected: R.impostor_mode !== 'once' }, 'À chaque vote erroné'), h('option', { value: 'once', selected: R.impostor_mode === 'once' }, 'Une seule fois'));
+  const hidden = (txt) => h('span', { class: blurRoles ? 'blur-role' : '', title: blurRoles ? 'Cliquer pour afficher' : '', onclick: (e) => blurRoles && e.currentTarget.classList.toggle('show') }, txt || '—');
+  const rows = V.rows || [], gains = V.gains || [];
+
+  return h('div', { class: 'panel' }, h('div', { class: 'row between' }, h('h2', { style: { margin: 0 } }, '🗳️ Vote de fin de partie'), h('span', { class: 'badge b-' + (V.state === 'open' ? 'running' : V.state === 'closed' ? 'ended' : 'lobby') }, label)),
+    h('p', { class: 'muted small' }, 'Chaque joueur attribue un rôle à ses coéquipiers (ou s\'abstient). À la clôture, les points sont ajoutés au classement et tracés dans l\'historique. L\'« imposteur » est le rôle coché « Rôle d\'imposteur » dans l\'éditeur de rôle.'),
+    h('div', { class: 'row', style: { marginTop: '.6rem' } }, btns, V.state !== 'none' ? h('span', { class: 'muted' }, `${V.voters} joueur(s) sur ${V.total} ont voté`) : null),
+    h('h3', { style: { marginTop: '1rem' } }, 'Points du vote'),
+    h('div', { class: 'row' }, field('Imposteur démasqué', I.find_impostor), field('Rôle trouvé', I.find_role), field('Erreur (points perdus)', I.wrong), field('Gain de l\'imposteur si on se trompe', I.impostor_gain), field('Bonus de l\'imposteur', mode)),
+    h('div', { class: 'row end' }, h('button', { class: 'btn', onclick: () => doIt('/api/host/votes/rules', 'PUT', { find_impostor: I.find_impostor.value, find_role: I.find_role.value, wrong: I.wrong.value, impostor_gain: I.impostor_gain.value, impostor_mode: mode.value }, 'Règles du vote enregistrées.') }, 'Enregistrer les règles')),
+    V.state !== 'none' ? h('div', [
+      h('h3', { style: { marginTop: '1rem' } }, V.state === 'closed' ? 'Votes et points attribués' : 'Votes reçus (points prévus à la clôture)'),
+      rows.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+        h('thead', h('tr', ['Votant', 'Cible', 'Vote', 'Vrai rôle', 'Résultat', 'Points'].map((t) => h('th', t)))),
+        h('tbody', rows.map((r) => h('tr', h('td', r.voter), h('td', r.target), h('td', r.guess), h('td', hidden(r.actual)), h('td', r.correct ? '✅' : '❌'),
+          h('td', { class: 'r ' + (r.points >= 0 ? 'pos' : 'neg') }, signed(r.points))))))) : h('div', { class: 'empty' }, 'Aucun vote pour le moment.'),
+      gains.length ? h('div', [h('h3', { style: { marginTop: '1rem' } }, 'Points gagnés par les imposteurs'),
+        h('div', { class: 'table-wrap' }, h('table', { class: 'data' }, h('tbody', gains.map((x) => h('tr', h('td', h('strong', x.player)), h('td', { class: 'muted' }, 'erreur de ' + x.because), h('td', { class: 'r pos' }, signed(x.points)))))))]) : null,
+    ]) : null);
+}
+
 // ───────────── 1. Partie ─────────────
 function gameSection() {
   const g = S.game, n = S.players.length;
@@ -170,6 +206,7 @@ function gameSection() {
       h('div', { class: 'row', style: { marginTop: '1rem' } }, act1,
         h('button', { class: 'btn btn-danger', onclick: async () => { if (await confirmDialog('Réinitialiser la partie ? Rôles, roues, missions ET scores seront effacés. Les joueurs sont conservés.', { danger: true, okLabel: 'Tout réinitialiser' })) doIt('/api/host/game/reset', 'POST', {}, 'Partie réinitialisée.'); } }, '⟲ Réinitialiser la partie'),
         h('button', { class: 'btn btn-danger btn-ghost', onclick: async () => { if (await confirmDialog('Remettre la partie en préparation en conservant les scores ?', { danger: true })) doIt('/api/host/game/reset', 'POST', { keep_scores: true }, 'Partie remise en préparation.'); } }, 'Réinitialiser (garder les scores)'))),
+    voteHostPanel(),
     h('div', { class: 'grid cols2' },
       h('div', { class: 'panel' }, h('h3', 'Paramètres de la partie'),
         field('Nom de la partie', nameI), h('div', { class: 'grid cols2' }, field('Équipe A', aI), field('Équipe B', bI)),
@@ -266,7 +303,7 @@ function openRoleEditor(role) {
   I.color = h('input', { type: 'color', value: d.color });
   I.wheel = h('select', h('option', { value: '', selected: !d.wheel }, 'Aucune'), Object.entries(S.wheels).map(([k, w]) => h('option', { value: k, selected: d.wheel === k }, w.label)));
   I.fail = numInput(d.fail_points, () => {}, { min: -1000, max: 1000 });
-  let enabled = !!d.enabled, perTeam = !!d.per_team;
+  let enabled = !!d.enabled, perTeam = !!d.per_team, isImp = !!d.is_impostor;
   I.weight = numInput(d.weight, () => {}, { step: 0.1 }); I.exact = numInput(d.exact_count, () => {}, { placeholder: '—' }); I.max = numInput(d.max_count, () => {}, { placeholder: '—' });
   const rewardsBox = h('div');
   const drawRewards = () => mount(rewardsBox,
@@ -281,6 +318,7 @@ function openRoleEditor(role) {
     h('h2', role ? `Modifier le rôle : ${role.name}` : 'Nouveau rôle'),
     h('div', { class: 'row', style: { alignItems: 'flex-end' } }, h('div', { class: 'field', style: { flex: '1 1 220px' } }, h('label', { class: 'f' }, 'Nom du rôle'), I.name), field('Icône', I.icon), field('Couleur', I.color), field('Roue associée', I.wheel)),
     checkbox(enabled, (v) => { enabled = v; }, 'Rôle activé (tiré au sort)'),
+    checkbox(isImp, (v) => { isImp = v; }, 'Rôle d\'imposteur (cible spéciale du vote de fin de partie : +points si on le démasque)'),
     h('div', { style: { height: '.6rem' } }),
     txt('mission', 'Mission (résumé)', 2), txt('description', 'Description complète', 3),
     txt('objectives', 'Objectifs de la mission', 3, 'Un objectif par ligne.'), txt('allowed_actions', 'Actions autorisées', 3, 'Une action par ligne.'),
@@ -294,7 +332,7 @@ function openRoleEditor(role) {
     h('div', { class: 'row end', style: { marginTop: '1rem' } }, h('button', { class: 'btn', onclick: () => close() }, 'Annuler'),
       h('button', { class: 'btn btn-primary', onclick: async () => {
         const body = {
-          name: I.name.value, icon: I.icon.value, color: I.color.value, enabled, wheel: I.wheel.value, fail_points: I.fail.value,
+          name: I.name.value, icon: I.icon.value, color: I.color.value, enabled, is_impostor: isImp, wheel: I.wheel.value, fail_points: I.fail.value,
           weight: I.weight.value, exact_count: I.exact.value, max_count: I.max.value, per_team: perTeam, rewards: d.rewards,
           ...Object.fromEntries(['mission', 'description', 'objectives', 'allowed_actions', 'victory', 'conditions', 'penalties'].map((k) => [k, I[k].value])),
         };
