@@ -148,7 +148,7 @@ function voteHostPanel() {
   } }, '↩ Rouvrir le vote (annule les points)'));
 
   const num = (k) => numInput(R[k], () => {}, { min: 0, max: 1000 });
-  const I = { find_impostor: num('find_impostor'), find_role: num('find_role'), wrong: num('wrong'), impostor_gain: num('impostor_gain') };
+  const I = { find_impostor: num('find_impostor'), find_role: num('find_role'), wrong: num('wrong'), impostor_gain: num('impostor_gain'), false_accusation: num('false_accusation') };
   const mode = h('select', h('option', { value: 'per_vote', selected: R.impostor_mode !== 'once' }, 'À chaque vote erroné'), h('option', { value: 'once', selected: R.impostor_mode === 'once' }, 'Une seule fois'));
   const hidden = (txt) => h('span', { class: blurRoles ? 'blur-role' : '', title: blurRoles ? 'Cliquer pour afficher' : '', onclick: (e) => blurRoles && e.currentTarget.classList.toggle('show') }, txt || '—');
   const rows = V.rows || [], gains = V.gains || [];
@@ -157,16 +157,16 @@ function voteHostPanel() {
     h('p', { class: 'muted small' }, 'Chaque joueur attribue un rôle à ses coéquipiers (ou s\'abstient). À la clôture, les points sont ajoutés au classement et tracés dans l\'historique. L\'« imposteur » est le rôle coché « Rôle d\'imposteur » dans l\'éditeur de rôle.'),
     h('div', { class: 'row', style: { marginTop: '.6rem' } }, btns, V.state !== 'none' ? h('span', { class: 'muted' }, `${V.voters} joueur(s) sur ${V.total} ont voté`) : null),
     h('h3', { style: { marginTop: '1rem' } }, 'Points du vote'),
-    h('div', { class: 'row' }, field('Imposteur démasqué', I.find_impostor), field('Rôle trouvé', I.find_role), field('Erreur (points perdus)', I.wrong), field('Gain de l\'imposteur si on se trompe', I.impostor_gain), field('Bonus de l\'imposteur', mode)),
-    h('div', { class: 'row end' }, h('button', { class: 'btn', onclick: () => doIt('/api/host/votes/rules', 'PUT', { find_impostor: I.find_impostor.value, find_role: I.find_role.value, wrong: I.wrong.value, impostor_gain: I.impostor_gain.value, impostor_mode: mode.value }, 'Règles du vote enregistrées.') }, 'Enregistrer les règles')),
+    h('div', { class: 'row' }, field('Imposteur démasqué', I.find_impostor), field('Rôle trouvé', I.find_role), field('Erreur (points perdus)', I.wrong), field('Bonus de l\'imposteur si on se trompe sur lui', I.impostor_gain), field('Malus d\'un innocent accusé à tort', I.false_accusation), field('Bonus de l\'imposteur', mode)),
+    h('div', { class: 'row end' }, h('button', { class: 'btn', onclick: () => doIt('/api/host/votes/rules', 'PUT', { find_impostor: I.find_impostor.value, find_role: I.find_role.value, wrong: I.wrong.value, impostor_gain: I.impostor_gain.value, false_accusation: I.false_accusation.value, impostor_mode: mode.value }, 'Règles du vote enregistrées.') }, 'Enregistrer les règles')),
     V.state !== 'none' ? h('div', [
       h('h3', { style: { marginTop: '1rem' } }, V.state === 'closed' ? 'Votes et points attribués' : 'Votes reçus (points prévus à la clôture)'),
       rows.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
         h('thead', h('tr', ['Votant', 'Cible', 'Vote', 'Vrai rôle', 'Résultat', 'Points'].map((t) => h('th', t)))),
         h('tbody', rows.map((r) => h('tr', h('td', r.voter), h('td', r.target), h('td', r.guess), h('td', hidden(r.actual)), h('td', r.correct ? '✅' : '❌'),
           h('td', { class: 'r ' + (r.points >= 0 ? 'pos' : 'neg') }, signed(r.points))))))) : h('div', { class: 'empty' }, 'Aucun vote pour le moment.'),
-      gains.length ? h('div', [h('h3', { style: { marginTop: '1rem' } }, 'Points gagnés par les imposteurs'),
-        h('div', { class: 'table-wrap' }, h('table', { class: 'data' }, h('tbody', gains.map((x) => h('tr', h('td', h('strong', x.player)), h('td', { class: 'muted' }, 'erreur de ' + x.because), h('td', { class: 'r pos' }, signed(x.points)))))))]) : null,
+      gains.length ? h('div', [h('h3', { style: { marginTop: '1rem' } }, 'Bonus (imposteur) et malus (innocent accusé à tort)'),
+        h('div', { class: 'table-wrap' }, h('table', { class: 'data' }, h('tbody', gains.map((x) => h('tr', h('td', h('strong', x.player)), h('td', { class: 'muted' }, x.because), h('td', { class: 'r ' + (x.points >= 0 ? 'pos' : 'neg') }, signed(x.points)))))))]) : null,
     ]) : null);
 }
 
