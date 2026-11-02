@@ -236,7 +236,7 @@ export function addScore(game, playerId, kind, points, comment = '', actor = 'h�
 }
 
 // ───────────────────────── Vote de fin de partie ─────────────────────────
-export const DEFAULT_VOTE_RULES = { find_impostor: 4, find_role: 2, wrong: 1, impostor_gain: 2, impostor_mode: 'per_vote' };
+export const DEFAULT_VOTE_RULES = { find_impostor: 4, find_role: 2, wrong: 1, impostor_gain: 2, false_accusation: 2, impostor_mode: 'per_vote' };
 
 export function voteRules() {
   let saved = {};
@@ -247,7 +247,7 @@ export function voteRules() {
 export function cleanVoteRules(input) {
   const cur = voteRules();
   const out = { ...cur };
-  for (const k of ['find_impostor', 'find_role', 'wrong', 'impostor_gain']) {
+  for (const k of ['find_impostor', 'find_role', 'wrong', 'impostor_gain', 'false_accusation']) {
     if (Object.prototype.hasOwnProperty.call(input, k)) {
       const n = Number(input[k]);
       if (!Number.isInteger(n) || n < 0 || n > 1000) throw new HttpError(400, 'Les points doivent être un nombre entier entre 0 et 1000.');
@@ -316,15 +316,14 @@ export function computeVoteOutcome(game, rules = voteRules()) {
     const imp = !!actual.is_impostor;
     const points = correct ? (imp ? rules.find_impostor : rules.find_role) : -rules.wrong;
     rows.push({ voter_id: voter.id, target_id: target.id, role_id: v.role_id, correct, impostor: imp, points });
-    // L'imposteur marque quand on se trompe à son sujet : on le rate, ou on accuse un innocent de la même équipe.
-    let fooled = [];
-    if (!correct && imp) fooled = [target];
-    else if (!correct && guessed.is_impostor && !imp) fooled = impostorsOfTeam(voter, [target.id]);
-    for (const p of fooled) gains.push({ player_id: p.id, points: rules.impostor_gain, voter_id: voter.id, target_id: target.id });
+    // Seul le vrai imposteur gagne un bonus, et seulement quand on se trompe à SON sujet.
+    // Un innocent désigné à tort comme imposteur perd des points ; l'imposteur ne gagne rien dans ce cas.
+    if (!correct && imp) gains.push({ player_id: target.id, points: rules.impostor_gain, voter_id: voter.id, target_id: target.id });
+    else if (!correct && guessed.is_impostor && !imp) gains.push({ player_id: target.id, points: -rules.false_accusation, voter_id: voter.id, target_id: target.id });
   }
   if (rules.impostor_mode === 'once') {
     const seen = new Set();
-    gains = gains.filter((g) => (seen.has(g.player_id) ? false : (seen.add(g.player_id), true)));
+    gains = gains.filter((g) => g.points < 0 || (seen.has(g.player_id) ? false : (seen.add(g.player_id), true)));
   }
   return { rows, gains };
 }
@@ -347,7 +346,7 @@ export function closeVotes(game) {
       const t = names.get(r.target_id);
       addEvent(r.voter_id, r.points, r.correct ? (r.impostor ? `Vote : a démasqué l'imposteur (${t})` : `Vote : a trouvé le rôle de ${t}`) : `Vote : s'est trompé sur ${t}`);
     }
-    for (const g of out.gains) addEvent(g.player_id, g.points, `Vote : ${names.get(g.voter_id)} s'est trompé sur ${names.get(g.target_id)}`);
+    for (const g of out.gains) addEvent(g.player_id, g.points, g.points > 0 ? `Vote : ${names.get(g.voter_id)} s'est trompé sur l'imposteur` : `Vote : accusé à tort d'être l'imposteur par ${names.get(g.voter_id)}`);
     run("UPDATE games SET votes_state='closed', votes_applied=?, votes_result=? WHERE id=?", JSON.stringify(ids), JSON.stringify(out), game.id);
   });
   return { votes: out.rows.length, events: ids.length };
@@ -373,7 +372,7 @@ export function voteView(game, player) {
   const mine = {};
   for (const v of all('SELECT target_id, role_id FROM votes WHERE voter_id=?', player.id)) mine[v.target_id] = v.role_id;
   const rules = voteRules();
-  const out = { state: game.votes_state, targets, roles, mine, rules: { find_impostor: rules.find_impostor, find_role: rules.find_role, wrong: rules.wrong } };
+  const out = { state: game.votes_state, targets, roles, mine, rules: { find_impostor: rules.find_impostor, find_role: rules.find_role, wrong: rules.wrong, impostor_gain: rules.impostor_gain, false_accusation: rules.false_accusation } };
   if (game.votes_state === 'closed') {
     let res = null;
     try { res = JSON.parse(game.votes_result); } catch { /* ignoré */ }
