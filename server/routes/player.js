@@ -1,6 +1,6 @@
 import { route, HttpError } from '../http.js';
 import { run, get, audit } from '../db.js';
-import { playerView, spinWheel, createClaim } from '../services.js';
+import { playerView, spinWheel, createClaim, submitVotes } from '../services.js';
 import { emit } from '../events.js';
 
 const A = { auth: 'player' };
@@ -34,4 +34,13 @@ route('POST', '/api/me/claims', A, ({ player, body }) => {
   const id = createClaim(player, String(body.reward_id || ''));
   emit('host', { gameId: player.game_id });
   return { id };
+});
+
+// Vote de fin de partie : le joueur attribue un rôle à chacun de ses coéquipiers (ou s'abstient).
+route('POST', '/api/me/votes', A, ({ player, body }) => {
+  const game = get('SELECT * FROM games WHERE id=?', player.game_id);
+  const n = submitVotes(game, player, body.votes);
+  audit(game.id, player.name, 'Vote enregistré', `${n} réponse(s)`);
+  emit('host', { gameId: game.id });
+  return { ok: true };
 });

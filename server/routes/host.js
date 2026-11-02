@@ -138,6 +138,37 @@ route('POST', '/api/host/game/reveal-roles', H, ({ body }) => {
   return { ok: true };
 });
 
+// ───────────── Vote de fin de partie ─────────────
+route('POST', '/api/host/votes/open', H, () => {
+  const g = cur();
+  S.openVotes(g);
+  audit(g.id, 'hôte', 'Vote de fin de partie ouvert');
+  changed(g, 'game', 'me');
+  return { ok: true };
+});
+route('POST', '/api/host/votes/close', H, () => {
+  const g = cur();
+  const r = S.closeVotes(g);
+  audit(g.id, 'hôte', 'Vote clôturé, points attribués', `${r.votes} vote(s), ${r.events} évènement(s) de score`);
+  changed(g, 'game', 'scores', 'me');
+  return { ok: true, ...r };
+});
+route('POST', '/api/host/votes/reopen', H, () => {
+  const g = cur();
+  S.reopenVotes(g);
+  audit(g.id, 'hôte', 'Vote rouvert, points du vote annulés');
+  changed(g, 'game', 'scores', 'me');
+  return { ok: true };
+});
+route('PUT', '/api/host/votes/rules', H, ({ body }) => {
+  const g = cur();
+  const rules = S.cleanVoteRules(body);
+  setSetting('vote_rules', JSON.stringify(rules));
+  audit(g.id, 'hôte', 'Règles de points du vote modifiées', JSON.stringify(rules));
+  changed(g, 'game', 'me');
+  return { ok: true, rules };
+});
+
 // ───────────── Joueurs ─────────────
 route('POST', '/api/host/players', H, ({ body }) => {
   const g = cur();
