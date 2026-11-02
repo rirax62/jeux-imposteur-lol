@@ -179,7 +179,7 @@ function votePanel() {
   const v = S.vote;
   const plural = (n) => (Math.abs(n) > 1 ? 'pts' : 'pt');
   const rules = h('div', { class: 'note' }, h('strong', 'Comment ça marche : '),
-    `attribuez un rôle à chacun de vos coéquipiers. Rôle trouvé : +${v.rules.find_role} ${plural(v.rules.find_role)} · imposteur démasqué : +${v.rules.find_impostor} ${plural(v.rules.find_impostor)} · erreur : −${v.rules.wrong} ${plural(v.rules.wrong)}. Attention : accuser à tort un innocent d'être l'imposteur lui fait perdre ${v.rules.false_accusation} ${plural(v.rules.false_accusation)}. `,
+    `attribuez un rôle à chacun de vos coéquipiers. Rôle trouvé : +${v.rules.find_role} ${plural(v.rules.find_role)} · imposteur démasqué : +${v.rules.find_impostor} ${plural(v.rules.find_impostor)} · erreur : −${v.rules.wrong} ${plural(v.rules.wrong)}. `,
     'Vous n\'êtes pas obligé de voter : si vous vous abstenez pour un joueur, personne ne gagne ni ne perd de points.');
 
   if (v.state === 'open') {
@@ -212,7 +212,6 @@ function votePanel() {
         h('td', r.correct ? '✅ Bien vu' : '❌ Raté', r.actual ? h('span', { class: 'muted small' }, ` (c'était : ${r.actual})`) : null),
         h('td', { class: 'r ' + (r.points >= 0 ? 'pos' : 'neg') }, signed(r.points))))))) : h('div', { class: 'empty' }, 'Vous n\'avez pas voté : aucun point gagné ni perdu.'),
     v.as_impostor > 0 ? h('p', { class: 'gold' }, `🎭 On s'est trompé sur vous (l'imposteur) : +${v.as_impostor} pts.`) : null,
-    v.as_impostor < 0 ? h('p', { class: 'neg' }, `⚠️ On vous a accusé à tort d'être l'imposteur : ${v.as_impostor} pts.`) : null,
     h('p', { style: { fontFamily: 'var(--serif)', fontSize: '1.3rem' } }, 'Total du vote : ', h('strong', { class: gain >= 0 ? 'pos' : 'neg' }, signed(gain) + ' pts')),
     h('p', { class: 'muted small' }, 'Ces points sont ajoutés à votre score.'));
 }
