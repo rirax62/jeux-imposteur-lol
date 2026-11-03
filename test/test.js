@@ -135,10 +135,10 @@ try {
   await api('POST', '/api/host/game/start', { host: true });
   me = await api('GET', '/api/me', { player: bg.token });
   assert.equal(me.wheel.key, 'bodyguard');
-  const oppIds = st.players.filter((p) => p.team !== bg.team).map((p) => p.id);
+  const oppIds = st.players.filter((p) => p.team === bg.team && p.id !== bg.id).map((p) => p.id); // Garde du corps : coéquipiers
   assert.deepEqual(me.wheel.candidates.map((c) => c.id).sort(), oppIds.sort());
   assert.ok(!me.wheel.candidates.some((c) => c.id === bg.id));
-  ok('roue : uniquement les joueurs adverses éligibles');
+  ok('roue du Garde du corps : uniquement les coéquipiers éligibles');
   const spin = await api('POST', '/api/me/wheel/spin', { player: bg.token });
   assert.equal(spin.status, 200);
   assert.ok(oppIds.includes(spin.target.id));
