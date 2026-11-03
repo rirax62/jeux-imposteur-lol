@@ -191,26 +191,26 @@ function seedRoles() {
   const R = (label, points, type, i) => ({ id: 'r' + i, label, points, type });
   ins.run(
     'Garde du corps',
-    'Protéger un joueur de votre équipe et remplir les objectifs associés.',
-    "Vous êtes le bouclier de votre équipe. Votre roue désigne un joueur adverse à garder à l'œil pendant toute la partie.",
-    'Protéger votre cible.\nRespecter les conditions de votre mission.\nRemplir les objectifs secondaires.',
-    "Lancer votre roue une fois pendant la partie.\nProtéger vos coéquipiers pendant les combats.",
-    'Votre cible survit et vous avez rempli la mission principale.',
-    'Le résultat de votre roue reste secret.',
-    'Si votre cible meurt par votre faute : -5 points.',
+    "Protégez votre allié désigné et veillez à ce qu'il ne meurt pas durant toute la partie.",
+    "Avant le début de la partie, une roue désigne aléatoirement un joueur de votre équipe. Ce joueur devient votre protégé.\n\nVotre mission consiste à assurer sa survie tout au long de la partie. Vous devrez adapter votre manière de jouer pour le protéger et limiter autant que possible ses morts.",
+    "Empêcher le joueur allié désigné aléatoirement par la roue de mourir ou le faire le moins possible.",
+    '',
+    "Votre mission est parfaitement accomplie si votre allié désigné termine la partie avec 0 mort.",
+    "Si votre allié ne remplit pas la condition de victoire principale, vous pouvez tout de même réussir votre mission en remplissant une condition secondaire basée sur son nombre de morts par rapport à celui des autres joueurs (= l'allié doit avoir le moins de mort de la partie).",
+    '',
     0, 1, null, 1, 'bodyguard', -5, '#4aa3ff', '🛡️',
     JSON.stringify([R('Mission réussie', 10, 'mission', 1), R('Objectif secondaire', 5, 'secondary', 2), R('Bonus spécial', 3, 'bonus', 3), R('Cible perdue', -5, 'penalty', 4)]),
     1
   );
   ins.run(
     'Obsédé',
-    'Surveiller discrètement un joueur adverse et rapporter ses actions.',
-    "Vos yeux voient tout. Votre roue désigne un joueur adverse dont vous devez suivre chaque mouvement.",
-    'Observer votre cible.\nNoter ses déplacements et ses objectifs.\nRemplir les objectifs secondaires.',
-    "Lancer votre roue une fois pendant la partie.\nPoser des questions à l'hôte sur votre cible.",
-    "Vos observations s'avèrent exactes à la fin de la partie.",
-    'Le résultat de votre roue reste secret.',
-    'Observation erronée : -3 points.',
+    "Faites en sorte que votre cible désignée termine la partie avec le plus grand nombre de morts de la partie.",
+    "Avant le début de la partie, une roue désigne aléatoirement un joueur de l'équipe adverse. Ce joueur devient votre cible.\n\nVotre mission consiste à pousser votre cible à mourir le plus souvent possible durant la partie. Vous devrez adapter votre manière de jouer pour provoquer sa chute et faire en sorte qu'elle soit celle qui accumule le plus de morts parmi les dix joueurs.",
+    "Faire mourir le joueur adverse désigné aléatoirement par la roue le plus de fois de la partie.",
+    '',
+    "Votre mission est parfaitement accomplie si votre cible désignée termine la partie avec le plus grand nombre de morts parmi tous les joueurs.",
+    "Si votre cible ne remplit pas la condition de victoire principale, vous pouvez tout de même réussir votre mission en remplissant une condition secondaire basée sur son nombre de morts par rapport à celui des autres joueurs : votre cible doit avoir le plus de morts de son équipe.",
+    '',
     0, 1, null, 1, 'observer', -3, '#a855f7', '👁️',
     JSON.stringify([R('Mission réussie', 10, 'mission', 1), R('Observation validée', 5, 'secondary', 2), R('Bonus spécial', 3, 'bonus', 3), R('Observation erronée', -3, 'penalty', 4)]),
     2
@@ -287,6 +287,29 @@ function seedRoles() {
   );
 }
 seedRoles();
+
+// Textes officiels des rôles « Garde du corps » et « Obsédé » (appliqués une seule fois sur une base existante)
+if (getSetting('roles_text_v1', null) === null) {
+  const upd = db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='' WHERE name=?");
+  const T = {
+  "Garde du corps": {
+    "mission": "Protégez votre allié désigné et veillez à ce qu'il ne meurt pas durant toute la partie.",
+    "description": "Avant le début de la partie, une roue désigne aléatoirement un joueur de votre équipe. Ce joueur devient votre protégé.\n\nVotre mission consiste à assurer sa survie tout au long de la partie. Vous devrez adapter votre manière de jouer pour le protéger et limiter autant que possible ses morts.",
+    "objectives": "Empêcher le joueur allié désigné aléatoirement par la roue de mourir ou le faire le moins possible.",
+    "victory": "Votre mission est parfaitement accomplie si votre allié désigné termine la partie avec 0 mort.",
+    "conditions": "Si votre allié ne remplit pas la condition de victoire principale, vous pouvez tout de même réussir votre mission en remplissant une condition secondaire basée sur son nombre de morts par rapport à celui des autres joueurs (= l'allié doit avoir le moins de mort de la partie)."
+  },
+  "Obsédé": {
+    "mission": "Faites en sorte que votre cible désignée termine la partie avec le plus grand nombre de morts de la partie.",
+    "description": "Avant le début de la partie, une roue désigne aléatoirement un joueur de l'équipe adverse. Ce joueur devient votre cible.\n\nVotre mission consiste à pousser votre cible à mourir le plus souvent possible durant la partie. Vous devrez adapter votre manière de jouer pour provoquer sa chute et faire en sorte qu'elle soit celle qui accumule le plus de morts parmi les dix joueurs.",
+    "objectives": "Faire mourir le joueur adverse désigné aléatoirement par la roue le plus de fois de la partie.",
+    "victory": "Votre mission est parfaitement accomplie si votre cible désignée termine la partie avec le plus grand nombre de morts parmi tous les joueurs.",
+    "conditions": "Si votre cible ne remplit pas la condition de victoire principale, vous pouvez tout de même réussir votre mission en remplissant une condition secondaire basée sur son nombre de morts par rapport à celui des autres joueurs : votre cible doit avoir le plus de morts de son équipe."
+  }
+};
+  for (const [name, t] of Object.entries(T)) upd.run(t.mission, t.description, t.objectives, t.victory, t.conditions, name);
+  setSetting('roles_text_v1', '1');
+}
 // Le rôle « Imposteur » sert de cible spéciale au vote de fin de partie (modifiable dans l'éditeur de rôle).
 run("UPDATE roles SET is_impostor=1 WHERE name='Imposteur' AND NOT EXISTS (SELECT 1 FROM roles WHERE is_impostor=1)");
 

@@ -20,7 +20,7 @@ export function createGame(name, copyFromId = null) {
   return tx(() => {
     const r = run('INSERT INTO games(name, created_at) VALUES(?,?)', str(name, 80) || 'Nouvelle partie', Date.now());
     const id = Number(r.lastInsertRowid);
-    for (const w of Object.keys(WHEELS)) run('INSERT OR IGNORE INTO wheel_config(game_id, wheel) VALUES(?,?)', id, w);
+    for (const w of Object.keys(WHEELS)) run('INSERT OR IGNORE INTO wheel_config(game_id, wheel, rule) VALUES(?,?,?)', id, w, defaultWheelRule(w));
     if (copyFromId) {
       const prev = get('SELECT * FROM games WHERE id=?', copyFromId);
       if (prev) {
@@ -238,6 +238,9 @@ export function addScore(game, playerId, kind, points, comment = '', actor = 'h�
 // ───────────────────────── Vote de fin de partie ─────────────────────────
 export const DEFAULT_VOTE_RULES = { find_impostor: 4, find_role: 2, wrong: 1, impostor_gain: 2, impostor_mode: 'per_vote' };
 
+// Le Garde du corps protège un coéquipier ; les autres roues (ex. Obsédé) visent l'équipe adverse par défaut.
+function defaultWheelRule(wheel) { return wheel === 'bodyguard' ? 'teammates' : 'opponents'; }
+
 export function voteRules() {
   let saved = {};
   try { saved = JSON.parse(getSetting('vote_rules', '{}')) || {}; } catch { /* ignoré */ }
@@ -409,7 +412,7 @@ export function voteHostView(game) {
 export function wheelConfig(gameId, wheel) {
   if (!WHEELS[wheel]) return null;
   // Une roue créée en cours de route n'a pas encore de réglages pour cette partie : on les crée à la volée.
-  run('INSERT OR IGNORE INTO wheel_config(game_id, wheel) VALUES(?,?)', gameId, wheel);
+  run('INSERT OR IGNORE INTO wheel_config(game_id, wheel, rule) VALUES(?,?,?)', gameId, wheel, defaultWheelRule(wheel));
   const c = get('SELECT * FROM wheel_config WHERE game_id=? AND wheel=?', gameId, wheel);
   if (!c) return null;
   let excluded = [];
