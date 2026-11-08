@@ -282,11 +282,15 @@ function seedRoles() {
   );
   ins.run(
     'Berzerker',
-    'Mission à définir par l\'hôte.',
-    'Rôle en cours de conception.',
-    '', '', '', 'Aucune.', 'Aucune.',
+    "Se battre jusqu'à la mort.",
+    "Le Berzerker veut avoir le plus de kills et/ou le plus de morts de la partie.",
+    "Être une salope du Bois de Boulogne qui suce du sang !",
+    '',
+    "Le Berzerker doit avoir le plus de morts et/ou de kills de la partie.",
+    "Gagner la game.",
+    '',
     10, null, 2, 0, '', 0, '#ff6b35', '🪓',
-    JSON.stringify([R('Mission réussie', 10, 'mission', 1)]),
+    JSON.stringify([R("Plus de morts de la partie", 8, 'mission', 1), R("Plus de kills de la partie", 8, 'mission', 2), R("Victoire", 4, 'bonus', 3)]),
     8
   );
 }
@@ -575,6 +579,40 @@ if (getSetting('roles_text_v8', null) === null) {
   db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Pacifiste'")
     .run(C.mission, C.description, C.objectives, C.victory, C.conditions, JSON.stringify(C.rewards));
   setSetting('roles_text_v8', '1');
+}
+
+// Berzerker : nouveau texte et nouveaux gains (appliqué une seule fois sur une base existante)
+if (getSetting('roles_text_v9', null) === null) {
+  const B = {
+  "mission": "Se battre jusqu'à la mort.",
+  "description": "Le Berzerker veut avoir le plus de kills et/ou le plus de morts de la partie.",
+  "objectives": "Être une salope du Bois de Boulogne qui suce du sang !",
+  "victory": "Le Berzerker doit avoir le plus de morts et/ou de kills de la partie.",
+  "conditions": "Gagner la game.",
+  "rewards": [
+    {
+      "id": "r1",
+      "label": "Plus de morts de la partie",
+      "points": 8,
+      "type": "mission"
+    },
+    {
+      "id": "r2",
+      "label": "Plus de kills de la partie",
+      "points": 8,
+      "type": "mission"
+    },
+    {
+      "id": "r3",
+      "label": "Victoire",
+      "points": 4,
+      "type": "bonus"
+    }
+  ]
+};
+  db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Berzerker'")
+    .run(B.mission, B.description, B.objectives, B.victory, B.conditions, JSON.stringify(B.rewards));
+  setSetting('roles_text_v9', '1');
 }
 // Le rôle « Imposteur » sert de cible spéciale au vote de fin de partie (modifiable dans l'éditeur de rôle).
 run("UPDATE roles SET is_impostor=1 WHERE name='Imposteur' AND NOT EXISTS (SELECT 1 FROM roles WHERE is_impostor=1)");
