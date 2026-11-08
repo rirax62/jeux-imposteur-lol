@@ -256,15 +256,15 @@ function seedRoles() {
   );
   ins.run(
     'Super Héro',
-    "Jouer au mieux pour l'équipe.",
-    "Pas de pouvoir spécial : votre talent suffit.",
-    "Gagner la partie.\nSoutenir les rôles spéciaux de l'équipe.",
-    'Toutes les actions de jeu normales.',
-    'Votre équipe gagne la partie.',
-    'Aucune.',
-    'Aucune.',
+    "Il doit gagner la partie.",
+    "Le héros doit absolument gagner la partie, malgré une équipe pouvant être très chaotique.",
+    "Porter son équipe tel Kylian Dictator !",
+    '',
+    "Gagner la partie.",
+    "Prendre un troll pick.\nVous gagnez 2 points bonus par imposteur dans votre équipe.",
+    '',
     55, null, null, 0, '', 0, '#c8aa6e', '⚔️',
-    JSON.stringify([R('Victoire de l\'équipe', 8, 'mission', 1), R('Bonus spécial', 3, 'bonus', 2)]),
+    JSON.stringify([R("Gagner la partie", 15, 'mission', 1), R("Troll pick", 5, 'bonus', 2), R("Imposteur dans votre équipe (2 pts par imposteur)", 2, 'bonus', 3)]),
     6
   );
   ins.run(
@@ -497,6 +497,40 @@ if (getSetting('roles_text_v6', null) === null) {
   db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Touriste'")
     .run(T.mission, T.description, T.objectives, T.victory, T.conditions, JSON.stringify(T.rewards));
   setSetting('roles_text_v6', '1');
+}
+
+// Super Héro : nouveau texte et nouveaux gains (appliqué une seule fois sur une base existante)
+if (getSetting('roles_text_v7', null) === null) {
+  const H = {
+  "mission": "Il doit gagner la partie.",
+  "description": "Le héros doit absolument gagner la partie, malgré une équipe pouvant être très chaotique.",
+  "objectives": "Porter son équipe tel Kylian Dictator !",
+  "victory": "Gagner la partie.",
+  "conditions": "Prendre un troll pick.\nVous gagnez 2 points bonus par imposteur dans votre équipe.",
+  "rewards": [
+    {
+      "id": "r1",
+      "label": "Gagner la partie",
+      "points": 15,
+      "type": "mission"
+    },
+    {
+      "id": "r2",
+      "label": "Troll pick",
+      "points": 5,
+      "type": "bonus"
+    },
+    {
+      "id": "r3",
+      "label": "Imposteur dans votre équipe (2 pts par imposteur)",
+      "points": 2,
+      "type": "bonus"
+    }
+  ]
+};
+  db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Super Héro'")
+    .run(H.mission, H.description, H.objectives, H.victory, H.conditions, JSON.stringify(H.rewards));
+  setSetting('roles_text_v7', '1');
 }
 // Le rôle « Imposteur » sert de cible spéciale au vote de fin de partie (modifiable dans l'éditeur de rôle).
 run("UPDATE roles SET is_impostor=1 WHERE name='Imposteur' AND NOT EXISTS (SELECT 1 FROM roles WHERE is_impostor=1)");
