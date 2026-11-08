@@ -269,11 +269,15 @@ function seedRoles() {
   );
   ins.run(
     'Pacifiste',
-    'Mission à définir par l\'hôte.',
-    'Rôle en cours de conception.',
-    '', '', '', 'Aucune.', 'Aucune.',
+    "Le pacifiste doit avoir le moins de kills possible de son équipe.",
+    "Le but du pacifiste est simple, il n'accepte pas la violence. Son but est d'avoir le moins de kills possible. Et de perdre la partie, car il ne veut pas participer à la guerre, évidemment sans AFK.",
+    "Être le bisounours de la partie.",
+    '',
+    "Il faut avoir moitié moins de kills que votre allié avec le moins de kills de votre équipe.",
+    "Avoir 0 kill donne des points bonus.\nAvoir le moins de dégâts finals de la team donne des points bonus.",
+    '',
     10, null, 2, 0, '', 0, '#7bd88f', '🕊️',
-    JSON.stringify([R('Mission réussie', 10, 'mission', 1)]),
+    JSON.stringify([R("Moitié moins de kills (condition de victoire)", 8, 'mission', 1), R("0 kill", 10, 'bonus', 2), R("Perdre la partie", 5, 'bonus', 3), R("Moins de dégâts possible de la team", 5, 'bonus', 4)]),
     7
   );
   ins.run(
@@ -531,6 +535,46 @@ if (getSetting('roles_text_v7', null) === null) {
   db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Super Héro'")
     .run(H.mission, H.description, H.objectives, H.victory, H.conditions, JSON.stringify(H.rewards));
   setSetting('roles_text_v7', '1');
+}
+
+// Pacifiste : nouveau texte et nouveaux gains (appliqué une seule fois sur une base existante)
+if (getSetting('roles_text_v8', null) === null) {
+  const C = {
+  "mission": "Le pacifiste doit avoir le moins de kills possible de son équipe.",
+  "description": "Le but du pacifiste est simple, il n'accepte pas la violence. Son but est d'avoir le moins de kills possible. Et de perdre la partie, car il ne veut pas participer à la guerre, évidemment sans AFK.",
+  "objectives": "Être le bisounours de la partie.",
+  "victory": "Il faut avoir moitié moins de kills que votre allié avec le moins de kills de votre équipe.",
+  "conditions": "Avoir 0 kill donne des points bonus.\nAvoir le moins de dégâts finals de la team donne des points bonus.",
+  "rewards": [
+    {
+      "id": "r1",
+      "label": "Moitié moins de kills (condition de victoire)",
+      "points": 8,
+      "type": "mission"
+    },
+    {
+      "id": "r2",
+      "label": "0 kill",
+      "points": 10,
+      "type": "bonus"
+    },
+    {
+      "id": "r3",
+      "label": "Perdre la partie",
+      "points": 5,
+      "type": "bonus"
+    },
+    {
+      "id": "r4",
+      "label": "Moins de dégâts possible de la team",
+      "points": 5,
+      "type": "bonus"
+    }
+  ]
+};
+  db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Pacifiste'")
+    .run(C.mission, C.description, C.objectives, C.victory, C.conditions, JSON.stringify(C.rewards));
+  setSetting('roles_text_v8', '1');
 }
 // Le rôle « Imposteur » sert de cible spéciale au vote de fin de partie (modifiable dans l'éditeur de rôle).
 run("UPDATE roles SET is_impostor=1 WHERE name='Imposteur' AND NOT EXISTS (SELECT 1 FROM roles WHERE is_impostor=1)");
