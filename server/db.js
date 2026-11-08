@@ -243,15 +243,15 @@ function seedRoles() {
   );
   ins.run(
     'Touriste',
-    "Ouvrir la vision et révéler la carte.",
-    "Vous êtes les yeux de l'équipe.",
-    'Placer des balises de vision.\nRepérer les menaces.',
-    'Traquer les ennemis dans la jungle.',
-    'Vous placez le nombre de balises demandé.',
-    'Aucune.',
-    'Aucune.',
+    "Le principe du touriste est de se balader sur la map.",
+    "Le touriste doit passer le moins de temps possible sur sa lane et gagner la partie. Tout en réalisant ses défis annexes. Il s'en fiche de gagner ou de perdre la game.",
+    "Être un touriste de base dans une grande ville.",
+    '',
+    "Être le moins présent sur sa lane.",
+    "Prendre des photos de vous plus 1 point bonus par photo :\n\nFaire un selfie avec un allié. 1 point par allié (4)\nFaire un selfie avec un ennemi. 1 point par ennemi. (5)\nSe photographier avec les larves, l'Herald, le Nashor, un dragon, l'Ancestral. 1 point par objectif. (5)\n\nPour prendre les photos (F12 ou fn + F12)",
+    '',
     10, null, null, 0, '', 0, '#f0b232', '🔭',
-    JSON.stringify([R('Mission réussie', 8, 'mission', 1), R('Bonus spécial', 3, 'bonus', 2)]),
+    JSON.stringify([R("Être le moins présent sur sa lane", 6, 'mission', 1), R("Selfie avec un allié (1 pt par allié, max 4)", 1, 'bonus', 2), R("Selfie avec un ennemi (1 pt par ennemi, max 5)", 1, 'bonus', 3), R("Selfie avec un objectif (1 pt par objectif, max 5)", 1, 'bonus', 4)]),
     5
   );
   ins.run(
@@ -457,6 +457,46 @@ if (getSetting('roles_text_v5', null) === null) {
   db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Peintre'")
     .run(P.mission, P.description, P.objectives, P.victory, P.conditions, JSON.stringify(P.rewards));
   setSetting('roles_text_v5', '1');
+}
+
+// Touriste : nouveau texte et nouveaux gains (appliqué une seule fois sur une base existante)
+if (getSetting('roles_text_v6', null) === null) {
+  const T = {
+  "mission": "Le principe du touriste est de se balader sur la map.",
+  "description": "Le touriste doit passer le moins de temps possible sur sa lane et gagner la partie. Tout en réalisant ses défis annexes. Il s'en fiche de gagner ou de perdre la game.",
+  "objectives": "Être un touriste de base dans une grande ville.",
+  "victory": "Être le moins présent sur sa lane.",
+  "conditions": "Prendre des photos de vous plus 1 point bonus par photo :\n\nFaire un selfie avec un allié. 1 point par allié (4)\nFaire un selfie avec un ennemi. 1 point par ennemi. (5)\nSe photographier avec les larves, l'Herald, le Nashor, un dragon, l'Ancestral. 1 point par objectif. (5)\n\nPour prendre les photos (F12 ou fn + F12)",
+  "rewards": [
+    {
+      "id": "r1",
+      "label": "Être le moins présent sur sa lane",
+      "points": 6,
+      "type": "mission"
+    },
+    {
+      "id": "r2",
+      "label": "Selfie avec un allié (1 pt par allié, max 4)",
+      "points": 1,
+      "type": "bonus"
+    },
+    {
+      "id": "r3",
+      "label": "Selfie avec un ennemi (1 pt par ennemi, max 5)",
+      "points": 1,
+      "type": "bonus"
+    },
+    {
+      "id": "r4",
+      "label": "Selfie avec un objectif (1 pt par objectif, max 5)",
+      "points": 1,
+      "type": "bonus"
+    }
+  ]
+};
+  db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Touriste'")
+    .run(T.mission, T.description, T.objectives, T.victory, T.conditions, JSON.stringify(T.rewards));
+  setSetting('roles_text_v6', '1');
 }
 // Le rôle « Imposteur » sert de cible spéciale au vote de fin de partie (modifiable dans l'éditeur de rôle).
 run("UPDATE roles SET is_impostor=1 WHERE name='Imposteur' AND NOT EXISTS (SELECT 1 FROM roles WHERE is_impostor=1)");
