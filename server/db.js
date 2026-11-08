@@ -230,15 +230,15 @@ function seedRoles() {
   );
   ins.run(
     'Peintre',
-    "Guider l'équipe vers la victoire.",
-    "Vous lisez la partie mieux que personne.",
-    "Coordonner les objectifs.\nAnnoncer les timings.",
-    'Appeler les décisions importantes.',
-    'Votre équipe remporte les objectifs que vous avez appelés.',
-    'Aucune.',
-    'Mauvais appel : -2 points.',
-    15, null, 2, 0, '', -2, '#0ac8b9', '🧠',
-    JSON.stringify([R('Mission réussie', 10, 'mission', 1), R('Bon appel', 4, 'secondary', 2), R('Mauvais appel', -2, 'penalty', 3)]),
+    "Vous devez avoir tous vos objets de la même couleur.",
+    "Votre but dans la partie c'est d'avoir tous vos items de la même couleur.\nLes items doivent correspondre à la grille de couleur donnée.",
+    "Être un vrai artiste !",
+    '',
+    "Les items doivent correspondre à la grille de couleur donnée.",
+    "Gagner la partie.\nPrendre un troll pick en fonction de la couleur des items choisis.",
+    '',
+    15, null, 2, 0, '', 0, '#0ac8b9', '🧠',
+    JSON.stringify([R("Couleur d'item respectée", 8, 'mission', 1), R("Troll pick coloré respecté (explication en fin de partie)", 8, 'secondary', 2), R("Victoire", 5, 'bonus', 3)]),
     4
   );
   ins.run(
@@ -423,6 +423,40 @@ if (getSetting('roles_text_v4', null) === null) {
   db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Imposteur'")
     .run(I.mission, I.description, I.objectives, I.victory, I.conditions, JSON.stringify(I.rewards));
   setSetting('roles_text_v4', '1');
+}
+
+// Peintre : nouveau texte et nouveaux gains (appliqué une seule fois sur une base existante)
+if (getSetting('roles_text_v5', null) === null) {
+  const P = {
+  "mission": "Vous devez avoir tous vos objets de la même couleur.",
+  "description": "Votre but dans la partie c'est d'avoir tous vos items de la même couleur.\nLes items doivent correspondre à la grille de couleur donnée.",
+  "objectives": "Être un vrai artiste !",
+  "victory": "Les items doivent correspondre à la grille de couleur donnée.",
+  "conditions": "Gagner la partie.\nPrendre un troll pick en fonction de la couleur des items choisis.",
+  "rewards": [
+    {
+      "id": "r1",
+      "label": "Couleur d'item respectée",
+      "points": 8,
+      "type": "mission"
+    },
+    {
+      "id": "r2",
+      "label": "Troll pick coloré respecté (explication en fin de partie)",
+      "points": 8,
+      "type": "secondary"
+    },
+    {
+      "id": "r3",
+      "label": "Victoire",
+      "points": 5,
+      "type": "bonus"
+    }
+  ]
+};
+  db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Peintre'")
+    .run(P.mission, P.description, P.objectives, P.victory, P.conditions, JSON.stringify(P.rewards));
+  setSetting('roles_text_v5', '1');
 }
 // Le rôle « Imposteur » sert de cible spéciale au vote de fin de partie (modifiable dans l'éditeur de rôle).
 run("UPDATE roles SET is_impostor=1 WHERE name='Imposteur' AND NOT EXISTS (SELECT 1 FROM roles WHERE is_impostor=1)");
