@@ -191,15 +191,15 @@ function seedRoles() {
   const R = (label, points, type, i) => ({ id: 'r' + i, label, points, type });
   ins.run(
     'Garde du corps',
-    "Protégez votre allié désigné et veillez à ce qu'il ne meurt pas durant toute la partie.",
-    "Avant le début de la partie, une roue désigne aléatoirement un joueur de votre équipe. Ce joueur devient votre protégé.\n\nVotre mission consiste à assurer sa survie tout au long de la partie. Vous devrez adapter votre manière de jouer pour le protéger et limiter autant que possible ses morts.",
-    "Empêcher le joueur allié désigné aléatoirement par la roue de mourir ou le faire le moins possible.",
+    "Le but du garde du corps est de faire en sorte que votre allié désigné aléatoirement grâce à la roue ait le moins de morts possible.",
+    "Le but du garde du corps est de faire en sorte que votre allié désigné aléatoirement grâce à la roue ait le moins de morts possible. Votre allié sous votre protection doit avoir la moitié moins de morts qu'un autre allié qui a le moins de morts.",
+    "Protégez votre équipier, tout en gagnant la partie.",
     '',
-    "Votre mission est parfaitement accomplie si votre allié désigné termine la partie avec 0 mort.",
-    "Si votre allié ne remplit pas la condition de victoire principale, vous pouvez tout de même réussir votre mission en remplissant une condition secondaire basée sur son nombre de morts par rapport à celui des autres joueurs (= l'allié doit avoir le moins de mort de la partie).",
+    "Votre allié sous votre protection doit avoir la moitié moins de morts qu'un autre allié qui a le moins de morts.",
+    "Si l'allié sous votre protection à 0 mort, vous gagnerez un bonus de points.\nSi vous gagnez la partie, vous gagnez des points bonus.\nSi l'allié estime que vous avez essayé de bien faire votre travail, vous gagnez un bonus de points.",
     '',
-    0, 1, null, 1, 'bodyguard', -5, '#4aa3ff', '🛡️',
-    JSON.stringify([R('Mission réussie', 10, 'mission', 1), R('Objectif secondaire', 5, 'secondary', 2), R('Bonus spécial', 3, 'bonus', 3), R('Cible perdue', -5, 'penalty', 4)]),
+    0, 1, null, 1, 'bodyguard', 0, '#4aa3ff', '🛡️',
+    JSON.stringify([R("Mission réussie", 10, 'mission', 1), R("Allié à 0 mort", 5, 'bonus', 2), R("Partie gagnée", 3, 'bonus', 3), R("Allié satisfait de votre travail", 3, 'bonus', 4)]),
     1
   );
   ins.run(
@@ -309,6 +309,46 @@ if (getSetting('roles_text_v1', null) === null) {
 };
   for (const [name, t] of Object.entries(T)) upd.run(t.mission, t.description, t.objectives, t.victory, t.conditions, name);
   setSetting('roles_text_v1', '1');
+}
+
+// Garde du corps : nouveau texte et nouveaux gains (appliqué une seule fois sur une base existante)
+if (getSetting('roles_text_v2', null) === null) {
+  const G = {
+  "mission": "Le but du garde du corps est de faire en sorte que votre allié désigné aléatoirement grâce à la roue ait le moins de morts possible.",
+  "description": "Le but du garde du corps est de faire en sorte que votre allié désigné aléatoirement grâce à la roue ait le moins de morts possible. Votre allié sous votre protection doit avoir la moitié moins de morts qu'un autre allié qui a le moins de morts.",
+  "objectives": "Protégez votre équipier, tout en gagnant la partie.",
+  "victory": "Votre allié sous votre protection doit avoir la moitié moins de morts qu'un autre allié qui a le moins de morts.",
+  "conditions": "Si l'allié sous votre protection à 0 mort, vous gagnerez un bonus de points.\nSi vous gagnez la partie, vous gagnez des points bonus.\nSi l'allié estime que vous avez essayé de bien faire votre travail, vous gagnez un bonus de points.",
+  "rewards": [
+    {
+      "id": "r1",
+      "label": "Mission réussie",
+      "points": 10,
+      "type": "mission"
+    },
+    {
+      "id": "r2",
+      "label": "Allié à 0 mort",
+      "points": 5,
+      "type": "bonus"
+    },
+    {
+      "id": "r3",
+      "label": "Partie gagnée",
+      "points": 3,
+      "type": "bonus"
+    },
+    {
+      "id": "r4",
+      "label": "Allié satisfait de votre travail",
+      "points": 3,
+      "type": "bonus"
+    }
+  ]
+};
+  db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Garde du corps'")
+    .run(G.mission, G.description, G.objectives, G.victory, G.conditions, JSON.stringify(G.rewards));
+  setSetting('roles_text_v2', '1');
 }
 // Le rôle « Imposteur » sert de cible spéciale au vote de fin de partie (modifiable dans l'éditeur de rôle).
 run("UPDATE roles SET is_impostor=1 WHERE name='Imposteur' AND NOT EXISTS (SELECT 1 FROM roles WHERE is_impostor=1)");
