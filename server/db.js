@@ -199,7 +199,7 @@ function seedRoles() {
     "Si l'allié sous votre protection à 0 mort, vous gagnerez un bonus de points.\nSi vous gagnez la partie, vous gagnez des points bonus.\nSi l'allié estime que vous avez essayé de bien faire votre travail, vous gagnez un bonus de points.",
     '',
     0, 1, null, 1, 'bodyguard', 0, '#4aa3ff', '🛡️',
-    JSON.stringify([R("Mission réussie", 10, 'mission', 1), R("Allié à 0 mort", 5, 'bonus', 2), R("Partie gagnée", 3, 'bonus', 3), R("Allié satisfait de votre travail", 3, 'bonus', 4)]),
+    JSON.stringify([R("Moitié moins de morts (condition de victoire)", 8, 'mission', 1), R("Allié à 0 mort", 10, 'bonus', 2), R("Victoire de la partie", 5, 'bonus', 3), R("Débrief de votre allié", 5, 'bonus', 4)]),
     1
   );
   ins.run(
@@ -322,26 +322,26 @@ if (getSetting('roles_text_v2', null) === null) {
   "rewards": [
     {
       "id": "r1",
-      "label": "Mission réussie",
-      "points": 10,
+      "label": "Moitié moins de morts (condition de victoire)",
+      "points": 8,
       "type": "mission"
     },
     {
       "id": "r2",
       "label": "Allié à 0 mort",
-      "points": 5,
+      "points": 10,
       "type": "bonus"
     },
     {
       "id": "r3",
-      "label": "Partie gagnée",
-      "points": 3,
+      "label": "Victoire de la partie",
+      "points": 5,
       "type": "bonus"
     },
     {
       "id": "r4",
-      "label": "Allié satisfait de votre travail",
-      "points": 3,
+      "label": "Débrief de votre allié",
+      "points": 5,
       "type": "bonus"
     }
   ]
