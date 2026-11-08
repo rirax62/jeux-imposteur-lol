@@ -204,15 +204,15 @@ function seedRoles() {
   );
   ins.run(
     'Obsédé',
-    "Faites en sorte que votre cible désignée termine la partie avec le plus grand nombre de morts de la partie.",
-    "Avant le début de la partie, une roue désigne aléatoirement un joueur de l'équipe adverse. Ce joueur devient votre cible.\n\nVotre mission consiste à pousser votre cible à mourir le plus souvent possible durant la partie. Vous devrez adapter votre manière de jouer pour provoquer sa chute et faire en sorte qu'elle soit celle qui accumule le plus de morts parmi les dix joueurs.",
-    "Faire mourir le joueur adverse désigné aléatoirement par la roue le plus de fois de la partie.",
+    "Faire en sorte que votre cible désignée par la roue ait le plus de morts de son équipe.",
+    "Avant le début de la partie, une roue désigne aléatoirement un joueur de l'équipe adverse. Ce joueur devient votre cible.\n\nVotre mission consiste à pousser votre cible à mourir le plus souvent possible durant la partie. Vous devrez adapter votre manière de jouer pour provoquer sa chute et faire en sorte qu'elle soit celle qui accumule le plus de morts parmi son équipe.",
+    "Qu'il crève un max !",
     '',
-    "Votre mission est parfaitement accomplie si votre cible désignée termine la partie avec le plus grand nombre de morts parmi tous les joueurs.",
-    "Si votre cible ne remplit pas la condition de victoire principale, vous pouvez tout de même réussir votre mission en remplissant une condition secondaire basée sur son nombre de morts par rapport à celui des autres joueurs : votre cible doit avoir le plus de morts de son équipe.",
+    "Plusieurs façons d'avoir des points :\nVotre cible a le plus de morts de sa team.\nS'il est le deuxième à avoir le plus de morts de sa team.\nS'il est le troisième à avoir le plus de morts de sa team.",
+    "Si vous gagnez votre partie, vous gagnez des points bonus.\nSi l'adversaire estime que vous l'avez bien focus, vous gagnez un bonus de points.",
     '',
-    0, 1, null, 1, 'observer', -3, '#a855f7', '👁️',
-    JSON.stringify([R('Mission réussie', 10, 'mission', 1), R('Observation validée', 5, 'secondary', 2), R('Bonus spécial', 3, 'bonus', 3), R('Observation erronée', -3, 'penalty', 4)]),
+    0, 1, null, 1, 'observer', 0, '#a855f7', '👁️',
+    JSON.stringify([R("Cible 1ère en morts de sa team", 10, 'mission', 1), R("Cible 2ème en morts de sa team", 8, 'secondary', 2), R("Cible 3ème en morts de sa team", 3, 'secondary', 3), R("Victoire", 5, 'bonus', 4), R("Adversaire : « bien focus »", 5, 'bonus', 5)]),
     2
   );
   ins.run(
@@ -349,6 +349,52 @@ if (getSetting('roles_text_v2', null) === null) {
   db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Garde du corps'")
     .run(G.mission, G.description, G.objectives, G.victory, G.conditions, JSON.stringify(G.rewards));
   setSetting('roles_text_v2', '1');
+}
+
+// Obsédé : nouveau texte et nouveaux gains (appliqué une seule fois sur une base existante)
+if (getSetting('roles_text_v3', null) === null) {
+  const O = {
+  "mission": "Faire en sorte que votre cible désignée par la roue ait le plus de morts de son équipe.",
+  "description": "Avant le début de la partie, une roue désigne aléatoirement un joueur de l'équipe adverse. Ce joueur devient votre cible.\n\nVotre mission consiste à pousser votre cible à mourir le plus souvent possible durant la partie. Vous devrez adapter votre manière de jouer pour provoquer sa chute et faire en sorte qu'elle soit celle qui accumule le plus de morts parmi son équipe.",
+  "objectives": "Qu'il crève un max !",
+  "victory": "Plusieurs façons d'avoir des points :\nVotre cible a le plus de morts de sa team.\nS'il est le deuxième à avoir le plus de morts de sa team.\nS'il est le troisième à avoir le plus de morts de sa team.",
+  "conditions": "Si vous gagnez votre partie, vous gagnez des points bonus.\nSi l'adversaire estime que vous l'avez bien focus, vous gagnez un bonus de points.",
+  "rewards": [
+    {
+      "id": "r1",
+      "label": "Cible 1ère en morts de sa team",
+      "points": 10,
+      "type": "mission"
+    },
+    {
+      "id": "r2",
+      "label": "Cible 2ème en morts de sa team",
+      "points": 8,
+      "type": "secondary"
+    },
+    {
+      "id": "r3",
+      "label": "Cible 3ème en morts de sa team",
+      "points": 3,
+      "type": "secondary"
+    },
+    {
+      "id": "r4",
+      "label": "Victoire",
+      "points": 5,
+      "type": "bonus"
+    },
+    {
+      "id": "r5",
+      "label": "Adversaire : « bien focus »",
+      "points": 5,
+      "type": "bonus"
+    }
+  ]
+};
+  db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Obsédé'")
+    .run(O.mission, O.description, O.objectives, O.victory, O.conditions, JSON.stringify(O.rewards));
+  setSetting('roles_text_v3', '1');
 }
 // Le rôle « Imposteur » sert de cible spéciale au vote de fin de partie (modifiable dans l'éditeur de rôle).
 run("UPDATE roles SET is_impostor=1 WHERE name='Imposteur' AND NOT EXISTS (SELECT 1 FROM roles WHERE is_impostor=1)");
