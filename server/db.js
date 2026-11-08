@@ -217,15 +217,15 @@ function seedRoles() {
   );
   ins.run(
     'Imposteur',
-    "Éliminer l'objectif prioritaire de la partie.",
-    "Discret et létal, vous frappez là où ça fait mal.",
-    "Réaliser le plus d'éliminations ciblées.\nNe pas mourir en solitaire.",
-    'Engager sur les cibles isolées.',
-    'Vous réalisez votre quota d\'éliminations.',
-    'Aucune.',
-    'Mort sans impact : -2 points.',
-    20, null, 2, 0, '', -2, '#e84057', '🗡️',
-    JSON.stringify([R('Mission réussie', 12, 'mission', 1), R('Objectif secondaire', 5, 'secondary', 2), R('Mort sans impact', -2, 'penalty', 3)]),
+    "Vous devez saboter la game en restant le plus discret possible.",
+    "Votre but dans la partie est de la faire perdre, sans vous faire remarquer par les joueurs de votre équipe.",
+    "Faire perdre la partie sans qu'on ne vous trouve. N'hésitez pas à prendre la place d'un autre !",
+    '',
+    "Faire perdre la partie sans qu'on ne vous trouve.",
+    "Vous gagnez des points et faites perdre des points si les autres joueurs se trompent sur votre rôle lors du vote de fin de partie.",
+    '',
+    20, null, 2, 0, '', 0, '#e84057', '🗡️',
+    JSON.stringify([R("Défaite de la partie", 15, 'mission', 1), R("Un allié se trompe sur votre rôle (par vote, automatique)", 2, 'bonus', 2)]),
     3
   );
   ins.run(
@@ -395,6 +395,34 @@ if (getSetting('roles_text_v3', null) === null) {
   db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Obsédé'")
     .run(O.mission, O.description, O.objectives, O.victory, O.conditions, JSON.stringify(O.rewards));
   setSetting('roles_text_v3', '1');
+}
+
+// Imposteur : nouveau texte et nouveaux gains (appliqué une seule fois sur une base existante)
+if (getSetting('roles_text_v4', null) === null) {
+  const I = {
+  "mission": "Vous devez saboter la game en restant le plus discret possible.",
+  "description": "Votre but dans la partie est de la faire perdre, sans vous faire remarquer par les joueurs de votre équipe.",
+  "objectives": "Faire perdre la partie sans qu'on ne vous trouve. N'hésitez pas à prendre la place d'un autre !",
+  "victory": "Faire perdre la partie sans qu'on ne vous trouve.",
+  "conditions": "Vous gagnez des points et faites perdre des points si les autres joueurs se trompent sur votre rôle lors du vote de fin de partie.",
+  "rewards": [
+    {
+      "id": "r1",
+      "label": "Défaite de la partie",
+      "points": 15,
+      "type": "mission"
+    },
+    {
+      "id": "r2",
+      "label": "Un allié se trompe sur votre rôle (par vote, automatique)",
+      "points": 2,
+      "type": "bonus"
+    }
+  ]
+};
+  db.prepare("UPDATE roles SET mission=?, description=?, objectives=?, allowed_actions='', victory=?, conditions=?, penalties='', fail_points=0, rewards=? WHERE name='Imposteur'")
+    .run(I.mission, I.description, I.objectives, I.victory, I.conditions, JSON.stringify(I.rewards));
+  setSetting('roles_text_v4', '1');
 }
 // Le rôle « Imposteur » sert de cible spéciale au vote de fin de partie (modifiable dans l'éditeur de rôle).
 run("UPDATE roles SET is_impostor=1 WHERE name='Imposteur' AND NOT EXISTS (SELECT 1 FROM roles WHERE is_impostor=1)");
